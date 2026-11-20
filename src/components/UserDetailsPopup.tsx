@@ -2,17 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CreditCard, UserRound, X } from "lucide-react";
+import { UserRound, X } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import styles from "./UserDetailsPopup.module.css";
 
-type AccountTab = "account" | "subscription";
+
 
 export const UserDetailsPopup = () => {
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<AccountTab>("account");
+
   const [notice, setNotice] = useState("");
   const [signingOut, setSigningOut] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -60,11 +60,6 @@ export const UserDetailsPopup = () => {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
-
-  const selectTab = (tab: AccountTab) => {
-    setActiveTab(tab);
-    setNotice("");
-  };
 
   const signOut = async () => {
     setSigningOut(true);
@@ -133,40 +128,7 @@ export const UserDetailsPopup = () => {
               </button>
             </header>
 
-            <div className={styles.tabs} role="tablist" aria-label="Account sections">
-              <button
-                id="account-tab"
-                className={activeTab === "account" ? styles.activeTab : styles.tab}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === "account"}
-                aria-controls="account-panel"
-                onClick={() => selectTab("account")}
-              >
-                <UserRound aria-hidden="true" size={15} />
-                Account
-              </button>
-              <button
-                id="subscription-tab"
-                className={activeTab === "subscription" ? styles.activeTab : styles.tab}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === "subscription"}
-                aria-controls="subscription-panel"
-                onClick={() => selectTab("subscription")}
-              >
-                <CreditCard aria-hidden="true" size={15} />
-                Subscription
-              </button>
-            </div>
-
-            {activeTab === "account" ? (
-              <section
-                id="account-panel"
-                className={styles.tabPanel}
-                role="tabpanel"
-                aria-labelledby="account-tab"
-              >
+            <section className={styles.tabPanel}>
                 <dl className={styles.detailsList}>
                   <div className={styles.detailRow}>
                     <dt>Name</dt>
@@ -176,10 +138,7 @@ export const UserDetailsPopup = () => {
                     <dt>Email</dt>
                     <dd>{session?.user.email ?? "—"}</dd>
                   </div>
-                  <div className={styles.detailRow}>
-                    <dt>Sign-in method</dt>
-                    <dd>Email and password</dd>
-                  </div>
+
                   <div className={styles.detailRow}>
                     <dt>Account status</dt>
                     <dd>
@@ -202,44 +161,8 @@ export const UserDetailsPopup = () => {
                     {signingOut ? "Signing out..." : "Sign out"}
                   </button>
                 </div>
-              </section>
-            ) : (
-              <section
-                id="subscription-panel"
-                className={styles.tabPanel}
-                role="tabpanel"
-                aria-labelledby="subscription-tab"
-              >
-                <div className={styles.planSummary}>
-                  <div>
-                    <p className={styles.eyebrow}>CURRENT PLAN</p>
-                    <h3>Free preview</h3>
-                  </div>
-                  <span className={styles.planBadge}>DEMO</span>
-                </div>
-                <dl className={styles.detailsList}>
-                  <div className={styles.detailRow}>
-                    <dt>Billing status</dt>
-                    <dd>No billing information saved</dd>
-                  </div>
-                  <div className={styles.detailRow}>
-                    <dt>Next renewal</dt>
-                    <dd>Not applicable</dd>
-                  </div>
-                </dl>
-                <div className={styles.subscriptionAction}>
-                  <p>Subscription controls are placeholders until billing is configured.</p>
-                  <button
-                    className={styles.primaryButton}
-                    type="button"
-                    onClick={() => setNotice("Subscription management will be available when billing is configured.")}
-                  >
-                    Manage subscription
-                  </button>
-                </div>
-              </section>
-            )}
-
+              <a href="/home/settings">Manage sign-in methods</a>
+            </section>
             {notice && <p className={styles.notice} role="status">{notice}</p>}
           </div>
         </div>

@@ -8,7 +8,7 @@ import styles from "./AuthForm.module.css";
 
 type AuthMode = "sign-in" | "sign-up";
 
-export function AuthForm() {
+export function AuthForm({ googleEnabled = false }: { googleEnabled?: boolean } = {}) {
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [name, setName] = useState("");
@@ -141,6 +141,14 @@ export function AuthForm() {
         </button>
       </form>
 
+      {googleEnabled && mode === "sign-in" && <button className={styles.mode} type="button" disabled={pending} onClick={async () => {
+        setPending(true);
+        try {
+          const result = await authClient.signIn.social({provider:"google",callbackURL:"/home",errorCallbackURL:"/?google=failed"});
+          if (result.error) setError("Google sign-in could not finish. Use your password and check Settings.");
+        } catch { setError("Google sign-in is unavailable. Try your password."); }
+        finally { setPending(false); }
+      }}>Continue with Google</button>}
       <p><Link href="/recover?action=verify">Resend verification email</Link></p>
       {mode === "sign-in" && <Link href="/recover">Forgot password?</Link>}
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { PersonalRecap } from "@/components/PersonalRecap";
 import styles from "./page.module.css";
 import type { Changes, Trends } from "@/types/metrics";
 import { ReadinessGauge } from "@/components/readinessGauge";
@@ -31,20 +32,22 @@ export default function Home() {
               <h1>Dashboard</h1>
             </div>
             <div className={styles.headerActions}>
+              <Link className={styles.importLink} href="/home/journal">Daily journal</Link>
               <Link className={styles.importLink} href="/home/import">Import data</Link>
               <UserDetailsPopup />
             </div>
           </header>
           <section className={styles.dataState} role={error ? "alert" : "status"}>
-            <h2>{error ? "Database connection required" : loading ? "Loading dashboard" : "No metric records yet"}</h2>
+            <h2>{error ? "Could not load dashboard" : loading ? "Loading dashboard" : "No metric records yet"}</h2>
             <p>
               {error
-                ? error
+                ? "Try loading your records again."
                 : loading
-                  ? "Connecting to your PostgreSQL data."
-                  : "Connect your database and import a CSV to start tracking metrics."}
+                  ? "Loading your records."
+                  : "Open the daily journal or import a CSV to add your first record."}
             </p>
-            {error && <p>Set DATABASE_URL, apply the database migrations, then seed the development account.</p>}
+            {!loading && !error && <Link href="/demo">Explore a sample dashboard</Link>}
+            {error && <button onClick={() => location.reload()}>Try again</button>}
           </section>
         </div>
       </main>
@@ -84,6 +87,7 @@ export default function Home() {
             <h1>Dashboard</h1>
           </div>
           <div className={styles.headerActions}>
+              <Link className={styles.importLink} href="/home/journal">Daily journal</Link>
             <Link className={styles.importLink} href="/home/import">Import data</Link>
             <UserDetailsPopup />
             <time className={styles.recordDate} dateTime={latest.date}>
@@ -117,6 +121,11 @@ export default function Home() {
           </div>
         </section>
 
+        <section className={styles.section}><h2>Daily check-in</h2>
+          {latest.checkIn ? <p>{latest.date} · Energy {latest.checkIn.energy ?? "skipped"} · Soreness {latest.checkIn.soreness ?? "skipped"} (1–5)</p> : <p>No check-in for {latest.date}.</p>}
+          <Link href={`/home/journal?date=${latest.date}`}>Open this day</Link>
+        </section>
+        <PersonalRecap rows={dailyMetrics} latest={latest} />
         <div className={styles.lowerSections}>
           <section className={styles.section} aria-labelledby="trends-title">
             <div className={styles.sectionHeading}>

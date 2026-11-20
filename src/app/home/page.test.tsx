@@ -37,7 +37,7 @@ describe("Home dashboard page", () => {
   it("shows an error state", () => {
     useDailyMetricsMock.mockReturnValue({ metrics: [], averages: emptyAverages, loading: false, error: "Database unavailable" });
     render(<Home />);
-    expect(screen.getByRole("alert")).toHaveTextContent("Database unavailable");
+    expect(screen.getByRole("alert")).toHaveTextContent("Try loading your records again.");
   });
 
   it("shows a no-data state when there are no metrics", () => {

@@ -21,7 +21,8 @@
     "auth:bootstrap-demo": "node --env-file=.env.local scripts/bootstrap-demo-account.mjs",
     "db:seed": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/seed.sql",
     "db:migrate:optional-readiness": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/005_optional_readiness.sql",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "db:migrate:journal": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/006_check_ins.sql"
   },
   "dependencies": {
     "better-auth": "^1.7.6",

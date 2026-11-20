@@ -169,7 +169,7 @@ export default function ImportDataPage() {
           <label className={styles.filePicker}>
             <span className={styles.filePickerTitle}>{selectedFile || "Select a CSV file"}</span>
             <span className={styles.filePickerHelp}>
-              {loading ? "Connecting to PostgreSQL..." : databaseError || "CSV only, up to 5 MB"}
+              {loading ? "Loading your records…" : databaseError ? "Could not load your records. Reload to try again." : "CSV only, up to 5 MB"}
             </span>
             <input
               type="file"
@@ -181,6 +181,7 @@ export default function ImportDataPage() {
 
           <div className={styles.formatInfo}>
             <h3>Required columns</h3>
+            <a href="/examples/synthetic-daily-totals.csv" download>Download an example CSV with fictional totals</a>
             <code>{requiredCsvHeaders.join(", ")}</code>
             <p>
               Dates use YYYY-MM-DD. Metric values must be non-negative whole numbers;
