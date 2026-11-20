@@ -16,19 +16,30 @@ npm run db:migrate
 npm run db:migrate:providers
 npm run db:migrate:webhook-minimization
 npm run db:migrate:auth
+npm run db:migrate:optional-readiness
 npm run db:seed
 ```
 
 The seed moves the existing three dashboard records and their contribution details into PostgreSQL. No metric values are embedded in the running application.
 
-4. Install dependencies and start the app:
+4. With Node 22.12 or newer, install the pinned dependencies and start the app:
 
 ```bash
-npm install
-npm run dev
+npm ci
+npm run dev -- -H 127.0.0.1
 ```
 
-PostgreSQL must be reachable before creating an account or opening the dashboard. Configure `RESEND_API_KEY` and a verified `RESEND_FROM_EMAIL` to send verification email. In local development, if the Resend key is unset, the verification link is printed only in the dev server output. For local PostgreSQL without TLS, remove `?sslmode=require` from the example URL. Managed database providers generally require SSL and supply their own connection string.
+Set `BASELINE_OWNER_EMAIL` to the one address allowed to create an account. An empty value closes registration. This controls new users; existing credentials continue to work. For synthetic testing, use a disposable database and an address at `example.test`.
+
+For local verification and password recovery, start Mailpit with its listeners restricted to loopback:
+
+```bash
+mailpit --listen 127.0.0.1:8025 --smtp 127.0.0.1:1025
+```
+
+Use `BASELINE_MAIL_TRANSPORT=mailpit` and open `http://127.0.0.1:8025` for the fixture inbox. Production requires `BASELINE_MAIL_TRANSPORT=resend`, a server-side `RESEND_API_KEY` and an authorized `RESEND_FROM_EMAIL`. The login page offers verification resend and password recovery. Each email request endpoint permits one request per client per minute. Reset links expire after 30 minutes. A successful reset ends existing sessions. Keep auth callback URLs out of proxy and hosting logs.
+
+For local PostgreSQL without TLS, remove `?sslmode=require` from the example URL. Use a separate, disposable database for integration tests. For managed databases, use the provider’s TLS connection string.
 
 To retain access to the seeded dashboard data locally, set `BASELINE_DEMO_PASSWORD` to a password of at least 12 characters and run `NODE_ENV=development npm run auth:bootstrap-demo`. This marks only the seeded demo user as verified and creates or updates its Better Auth credential. The script refuses to run unless `NODE_ENV=development`.
 
@@ -50,19 +61,28 @@ The welcome page supports email/password registration and login. New accounts mu
 
 ## CSV Import Format
 
-The Import data page accepts CSV files with exactly these columns:
+The Import data page accepts CSV files with the following columns. The last column is optional:
 
 ```text
 date,steps,moveCalories,restMinutes,breatheMinutes,readinessScore
 ```
 
-Dates must be real `YYYY-MM-DD` values. Metric values must be non-negative whole numbers; readiness must be from 0 to 100. Aggregate CSV rows are stored as imported daily summaries, not fabricated activity breakdowns.
+Each row belongs to the calendar date supplied by the source. Enter a local YYYY-MM-DD date, including for historical records after travel. The importer does not shift a row to the server timezone or infer how to split a session crossing midnight. Supply daily totals for steps (count), move (active kcal), rest and breathwork (minutes, 0–1440 each). Rest is the source's recorded rest time; it does not imply measured sleep. The four totals are required: zero means an observed zero. Leave an unknown readiness score blank or omit its column. A supplied 0–100 score comes from the source and is displayed with its origin. Baseline does not calculate a readiness score.
+
+CSV rows store totals without creating event details. The import preview identifies the destination account. Any duplicate date rejects the entire batch. To transfer totals previously saved by this browser, open **Import earlier browser data**, preview them and confirm the account. The original browser copy is retained. Existing database rows and any earlier contribution history are preserved by migration 005. Before reverting to a schema that requires scores, review missing scores explicitly; assigning zero would change their meaning.
 
 ## Development Checks
 
 ```bash
 npm run lint
+npx next typegen
+npx tsc --noEmit
+npm run test:coverage
 npm run build
 ```
+
+Run `npm run test:integration` with `DATABASE_URL` set to a fresh, empty disposable PostgreSQL database. The suite applies migrations 001–005 and exercises per-account reads and atomic writes.
+
+For the browser rehearsal, use a separate freshly migrated disposable database, a local Mailpit instance, `BASELINE_MAIL_TRANSPORT=mailpit`, and a fresh `qa-<uuid>@example.test` as `BASELINE_OWNER_EMAIL`. Set both app URLs to `http://localhost:3300`. Start the app with `npm run dev -- -H 127.0.0.1 -p 3300`. Export the same fixture owner and transport in the test shell. Run `npx playwright install chromium` once, then `npm run test:e2e` (or set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to a local Chromium). It exercises verification, import, reset-link reuse, credential change and session invalidation. To run the equivalent HTTP lifecycle checks against a separate fresh fixture, set `BASELINE_API_ONLY=1` in the test shell. The database and inbox should contain synthetic records only.
 
 Baseline is a personal software project and is not a medical device. It does not provide medical advice, diagnosis, or treatment recommendations.

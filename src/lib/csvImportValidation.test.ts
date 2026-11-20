@@ -7,7 +7,7 @@ describe("validateCsvHeaders", () => {
   });
 
   it("errors when a required header is missing", () => {
-    const fields = requiredCsvHeaders.filter((header) => header !== "readinessScore");
+    const fields = requiredCsvHeaders.filter((header) => header !== "steps");
     expect(validateCsvHeaders(fields)).toHaveLength(1);
   });
 
@@ -37,6 +37,19 @@ describe("validateAndParseCsvRows", () => {
     expect(parsedMetrics[0]).toMatchObject({ date: "2026-01-01", steps: 1000, moveCalories: 200 });
   });
 
+  it.each([[undefined, null], ["  ", null], ["0", 0], ["100", 100]] as const)(
+    "preserves optional score %s without inventing activities", (value, expected) => {
+      const row: Record<string, string> = { ...validRow };
+      if (value === undefined) delete row.readinessScore;
+      else row.readinessScore = value;
+      expect(validateCsvHeaders(Object.keys(row))).toEqual([]);
+      const { parsedMetrics, errors } = validateAndParseCsvRows([row], new Set());
+      expect(errors).toEqual([]);
+      expect(parsedMetrics[0]).toMatchObject({ readinessScore: expected, activities: [], stepActivities: [],
+        restPeriods: [], breathworkSessions: [], steps: 1000 });
+    },
+  );
+
   it("rejects an invalid calendar date", () => {
     const { errors, parsedMetrics } = validateAndParseCsvRows(
       [{ ...validRow, date: "2026-02-30" }],
@@ -63,7 +76,7 @@ describe("validateAndParseCsvRows", () => {
 
   it("rejects readinessScore above 100", () => {
     const { errors } = validateAndParseCsvRows([{ ...validRow, readinessScore: "150" }], new Set());
-    expect(errors.some((e) => e.includes("readinessScore must be between 0 and 100"))).toBe(true);
+    expect(errors.some((e) => e.includes("readinessScore must be a non-negative whole number up to 100"))).toBe(true);
   });
 
   it("rejects a date that already exists in the database", () => {

@@ -99,9 +99,23 @@ describe("POST /api/metrics", () => {
     expect(insertDailyMetricsMock).not.toHaveBeenCalled();
   });
 
+  it("requires a new preview if the active account changed", async () => {
+    const request = postRequest([validRecord]);
+    request.headers.set("X-Baseline-Preview-Owner", "other-user");
+    expect((await POST(request)).status).toBe(409);
+    expect(insertDailyMetricsMock).not.toHaveBeenCalled();
+  });
+
   it("returns 400 when the payload is not an array", async () => {
     const response = await POST(postRequest({ not: "an array" }));
     expect(response.status).toBe(400);
+  });
+
+  it("requires a new preview if the active account changed", async () => {
+    const request = postRequest([validRecord]);
+    request.headers.set("X-Baseline-Preview-Owner", "other-user");
+    expect((await POST(request)).status).toBe(409);
+    expect(insertDailyMetricsMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 when the payload is empty", async () => {
@@ -117,6 +131,12 @@ describe("POST /api/metrics", () => {
   it("returns 400 for an impossible calendar date", async () => {
     const response = await POST(postRequest([{ ...validRecord, date: "2026-02-30" }]));
     expect(response.status).toBe(400);
+  });
+
+  it("accepts a summary without events or an external score", async () => {
+    const summary = { ...validRecord, readinessScore: undefined, activities: [], stepActivities: [], restPeriods: [], breathworkSessions: [] };
+    expect((await POST(postRequest([summary]))).status).toBe(201);
+    expect(insertDailyMetricsMock).toHaveBeenCalledWith("user-1", [expect.objectContaining({ steps: 1000, readinessScore: null, activities: [] })]);
   });
 
   it("returns 400 when readinessScore is out of bounds", async () => {

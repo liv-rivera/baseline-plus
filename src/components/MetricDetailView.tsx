@@ -86,11 +86,12 @@ export const MetricDetailView = ({
             ) : newestFirst.length === 0 ? (
               <p className={styles.dataState}>No contributions are available.</p>
             ) : newestFirst.map((record) => (
-              <article className={styles.record} key={record.date}>
+              <article className={styles.record} id={`day-${record.date}`} key={record.date}>
                 <header className={styles.recordHeading}>
                   <time dateTime={record.date}>{formatDate(record.date)}</time>
                   <p>{formatValue(record.total, unit)}</p>
                 </header>
+                {record.entries.length === 0 && <p>Daily total only. No individual entries were supplied.</p>}
                 <ul className={styles.entryList}>
                   {record.entries.map((entry) => (
                     <li className={styles.entry} key={entry.id}>

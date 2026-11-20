@@ -100,9 +100,9 @@ export default function Home() {
           <div className={styles.readinessCopy}>
             <p className={styles.eyebrow}>RECOVERY CHECK-IN</p>
             <h2 id="readiness-title">Readiness</h2>
-            <p className={styles.readinessDescription}>Your daily recovery score</p>
+            <p className={styles.readinessDescription}>{latest.readinessScore === null ? "No score recorded for this date." : latest.source === "import" ? "Score supplied in your import" : latest.source === "demo" ? "Example score" : "Recorded score"}</p>
           </div>
-          <ReadinessGauge score={latest.readinessScore} />
+          {latest.readinessScore !== null && <ReadinessGauge score={latest.readinessScore} />}
         </section>
 
         <section className={styles.section} aria-labelledby="latest-title">
@@ -144,7 +144,7 @@ export default function Home() {
           <section className={styles.section} aria-labelledby="changes-title">
             <div className={styles.sectionHeading}>
               <div>
-                <p className={styles.eyebrow}>LATEST VS. AVERAGE</p>
+                <p className={styles.eyebrow}>LATEST VS. FULL-HISTORY AVERAGE</p>
                 <h2 id="changes-title">Change</h2>
               </div>
             </div>

@@ -19,7 +19,9 @@
     "db:migrate:webhook-minimization": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/003_minimize_webhook_storage.sql",
     "db:migrate:auth": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/004_auth.sql",
     "auth:bootstrap-demo": "node --env-file=.env.local scripts/bootstrap-demo-account.mjs",
-    "db:seed": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/seed.sql"
+    "db:seed": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/seed.sql",
+    "db:migrate:optional-readiness": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/005_optional_readiness.sql",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "better-auth": "^1.7.6",
@@ -33,6 +35,7 @@
     "resend": "^6.30.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",

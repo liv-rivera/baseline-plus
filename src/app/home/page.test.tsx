@@ -46,6 +46,20 @@ describe("Home dashboard page", () => {
     expect(screen.getByText("No metric records yet")).toBeInTheDocument();
   });
 
+  it.each([null, 0] as const)("renders imported readiness %s without confusing missing data with zero", (score) => {
+    useDailyMetricsMock.mockReturnValue({ metrics: [makeMetric("2026-11-01", { readinessScore: score, source: "import" })],
+      averages: emptyAverages, loading: false, error: null });
+    render(<Home />);
+    if (score === null) {
+      expect(screen.queryByRole("img", { name: /readiness score/i })).toBeNull();
+      expect(screen.getByText("No score recorded for this date.")).toBeVisible();
+    } else {
+      expect(screen.getByText("Score supplied in your import")).toBeVisible();
+      expect(screen.getByRole("img", { name: "Readiness score: 0 out of 100" })).toBeVisible();
+    }
+    expect(screen.getByText("LATEST VS. FULL-HISTORY AVERAGE")).toBeVisible();
+  });
+
   it("renders trend and change values relative to the average and previous record", () => {
     const metrics = [
       makeMetric("2026-01-01", { steps: 1000, moveCalories: 200, restMinutes: 30, breatheMinutes: 10, readinessScore: 70 }),

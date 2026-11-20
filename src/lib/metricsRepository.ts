@@ -11,7 +11,7 @@ type MetricRow = {
   move_calories: number;
   rest_minutes: number;
   breathwork_minutes: number;
-  readiness_score: number;
+  readiness_score: number | null;
   source: "demo" | "import" | "manual";
 };
 

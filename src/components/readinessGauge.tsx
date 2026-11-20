@@ -4,7 +4,7 @@ type ReadinessGaugeProps = {
 
 export const ReadinessGauge = ({score}: ReadinessGaugeProps) => {
   return (
-    <svg 
+    <svg role="img" aria-label={`Readiness score: ${score} out of 100`}
       fill="none"
       strokeWidth="14"
       strokeLinecap="round"

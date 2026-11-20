@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Auth callback URLs contain single-use credentials.
+  logging: { incomingRequests: false },
   reactCompiler: true,
 };
 
