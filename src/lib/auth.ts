@@ -2,7 +2,8 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { betterAuth } from "better-auth";
-import { Resend } from "resend";
+import { APIError } from "better-auth/api";
+import { sendAccountEmail } from "@/lib/accountEmail";
 import { getDatabasePool } from "@/lib/database";
 
 const configuredBaseURL = process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL;
@@ -64,51 +65,37 @@ export const auth = betterAuth({
       updatedAt: "updated_at",
     },
   },
+  rateLimit: {
+    enabled: true,
+    customRules: {
+      "/send-verification-email": { window: 60, max: 1 },
+      "/request-password-reset": { window: 60, max: 1 },
+    },
+  },
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 12,
     requireEmailVerification: true,
+    sendResetPassword: ({ user, url }) => sendAccountEmail("reset", user.email, url),
+    resetPasswordTokenExpiresIn: 1800,
+    revokeSessionsOnPasswordReset: true,
     onExistingUserSignUp: async () => undefined,
   },
   emailVerification: {
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
-    sendVerificationEmail: async ({ user, url }) => {
-      const apiKey = process.env.RESEND_API_KEY;
-      if (!apiKey) {
-        if (process.env.NODE_ENV === "development") {
-          console.info("[Baseline] Local email verification URL:", url);
-          return;
-        }
-        throw new Error("RESEND_API_KEY must be configured to send verification email.");
-      }
-
-      const from = process.env.RESEND_FROM_EMAIL;
-      if (!from) {
-        throw new Error("RESEND_FROM_EMAIL must be configured to send verification email.");
-      }
-
-      const { error } = await new Resend(apiKey).emails.send({
-        from,
-        to: [user.email],
-        subject: "Verify your Baseline account",
-        text: `Verify your email address to access Baseline: ${url}`,
-      });
-      if (error) {
-        throw new Error(`Unable to send verification email: ${error.message}`);
-      }
-    },
+    sendVerificationEmail: ({ user, url }) => sendAccountEmail("verify", user.email, url),
   },
   databaseHooks: {
     user: {
       create: {
-        before: async (user) => ({
-          data: {
-            ...user,
-            email: user.email.trim().toLowerCase(),
-            name: user.name.trim(),
-          },
-        }),
+        before: async (user) => {
+          const email = user.email.trim().toLowerCase();
+          if (email !== process.env.BASELINE_OWNER_EMAIL?.trim().toLowerCase()) {
+            throw new APIError("FORBIDDEN", { message: "Registration is closed for this address." });
+          }
+          return { data: { ...user, email, name: user.name.trim() } };
+        },
       },
     },
   },

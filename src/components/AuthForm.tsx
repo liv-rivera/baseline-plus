@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import styles from "./AuthForm.module.css";
 
@@ -88,7 +89,7 @@ export function AuthForm() {
         <h2 id="auth-title">{mode === "sign-in" ? "Log in to Baseline" : "Create your account"}</h2>
       </div>
 
-      <form
+      <form method="post"
         className={styles.form}
         aria-label={mode === "sign-in" ? "Log in form" : "Create account form"}
         onSubmit={submit}
@@ -139,6 +140,9 @@ export function AuthForm() {
           {pending ? "Please wait..." : mode === "sign-in" ? "Log in" : "Create account"}
         </button>
       </form>
+
+      <p><Link href="/recover?action=verify">Resend verification email</Link></p>
+      {mode === "sign-in" && <Link href="/recover">Forgot password?</Link>}
 
       <p className={styles.switchPrompt}>
         {mode === "sign-in" ? "New to Baseline?" : "Already have an account?"}{" "}

@@ -43,19 +43,15 @@ describe("useDailyMetrics", () => {
     expect(result.current.error).toBe("Database unavailable");
   });
 
-  it("migrates legacy localStorage imports before loading metrics", async () => {
-    const legacyMetrics = [{ date: "2026-01-01" }];
-    window.localStorage.setItem("baseline.importedMetrics.v1", JSON.stringify(legacyMetrics));
-
-    fetchMock
-      .mockResolvedValueOnce(jsonResponse({ inserted: 1 }, { status: 201 })) // migration POST
-      .mockResolvedValueOnce(jsonResponse({ metrics: [], averages: { steps: 0, moveCalories: 0, restMinutes: 0, breatheMinutes: 0 } })); // GET
-
+  it("leaves browser records local when opening a signed-in dashboard", async () => {
+    const legacy = JSON.stringify([{ date: "2026-01-01" }]);
+    window.localStorage.setItem("baseline.importedMetrics.v1", legacy);
+    fetchMock.mockResolvedValueOnce(jsonResponse({ metrics: [], averages: {} }));
     const { result } = renderHook(() => useDailyMetrics());
     await waitFor(() => expect(result.current.loading).toBe(false));
-
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/metrics", expect.objectContaining({ method: "POST" }));
-    expect(window.localStorage.getItem("baseline.importedMetrics.v1")).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1].method).toBeUndefined();
+    expect(window.localStorage.getItem("baseline.importedMetrics.v1")).toBe(legacy);
   });
 
   it("refresh() triggers a new load cycle", async () => {

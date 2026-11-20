@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
+import { authClient } from "@/lib/auth-client";
 import Papa from "papaparse";
 import Link from "next/link";
 import { useDailyMetrics } from "@/lib/useDailyMetrics";
 import type { DailyMetrics } from "@/types/metrics";
-import { requiredCsvHeaders, validateAndParseCsvRows, validateCsvHeaders } from "@/lib/csvImportValidation";
+import { requiredCsvHeaders, templateHeaders, validateAndParseCsvRows, validateCsvHeaders } from "@/lib/csvImportValidation";
 import styles from "./page.module.css";
 
 const downloadTemplate = () => {
-  const csv = `${requiredCsvHeaders.join(",")}\n`;
+  const csv = `${templateHeaders.join(",")}\n`;
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
   const link = document.createElement("a");
   link.href = url;
@@ -25,8 +26,40 @@ export default function ImportDataPage() {
   const [errors, setErrors] = useState<string[]>([]);
   const [successMessage, setSuccessMessage] = useState("");
 
+  const [pending, setPending] = useState(false);
+
+  const { data: session } = authClient.useSession();
+  const [previewOwner, setPreviewOwner] = useState("");
+
+  const selectionVersion = useRef(0);
+
+  const previewBrowserTotals = () => {
+    selectionVersion.current++;
+    setErrors([]);
+    setPreview([]);
+    setSuccessMessage("");
+    setSelectedFile("");
+    if (!session) return;
+    setPreviewOwner(session.user.id);
+    try {
+      const saved = JSON.parse(localStorage.getItem("baseline.importedMetrics.v1") ?? "[]") as unknown;
+      if (!Array.isArray(saved) || !saved.length) {
+        setErrors(["No saved daily totals were found in this browser."]);
+        return;
+      }
+      const rows = saved.map(record => Object.fromEntries(templateHeaders.map(key => [key, String(record[key] ?? "")])));
+      const result = validateAndParseCsvRows(rows, new Set(existingMetrics.map(record => record.date)));
+      if (result.errors.length) setErrors(result.errors.slice(0, 10));
+      else setPreview(result.parsedMetrics);
+    } catch {
+      setErrors(["Could not read this browser’s saved totals. The local copy is still available."]);
+    }
+  };
+
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const version = ++selectionVersion.current;
     const file = event.target.files?.[0];
+    setPreviewOwner(session?.user.id ?? "");
     setPreview([]);
     setErrors([]);
     setSuccessMessage("");
@@ -51,6 +84,7 @@ export default function ImportDataPage() {
       skipEmptyLines: "greedy",
       transformHeader: (header) => header.trim(),
       complete: (result) => {
+        if (version !== selectionVersion.current) return;
         const validationErrors: string[] = [];
         const fields = result.meta.fields ?? [];
         validationErrors.push(...validateCsvHeaders(fields));
@@ -76,15 +110,20 @@ export default function ImportDataPage() {
 
         setPreview(parsedMetrics);
       },
-      error: (error) => setErrors([`Could not read the CSV file: ${error.message}`]),
+      error: (error) => {
+        if (version === selectionVersion.current) setErrors([`Could not read the CSV file: ${error.message}`]);
+      },
     });
   };
 
   const handleImport = async () => {
+    if (pending || !previewOwner || session?.user.id !== previewOwner) return;
+    setPending(true);
+    setErrors([]);
     try {
       const response = await fetch("/api/metrics", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Baseline-Preview-Owner": previewOwner },
         body: JSON.stringify(preview),
       });
       const result = await response.json() as { inserted?: number; error?: string };
@@ -92,12 +131,14 @@ export default function ImportDataPage() {
         throw new Error(result.error ?? "The records could not be imported.");
       }
 
-      setSuccessMessage(`${result.inserted ?? preview.length} ${preview.length === 1 ? "record" : "records"} added to PostgreSQL.`);
+      setSuccessMessage(`${result.inserted ?? preview.length} ${preview.length === 1 ? "record" : "records"} added to your account.`);
       setPreview([]);
       setSelectedFile("");
       refresh();
     } catch (importError) {
       setErrors([importError instanceof Error ? importError.message : "The records could not be imported."]);
+    } finally {
+      setPending(false);
     }
   };
 
@@ -134,7 +175,7 @@ export default function ImportDataPage() {
               type="file"
               accept=".csv,text/csv"
               onChange={handleFileChange}
-              disabled={loading || Boolean(databaseError)}
+              disabled={!session || pending || loading || Boolean(databaseError)}
             />
           </label>
 
@@ -143,9 +184,15 @@ export default function ImportDataPage() {
             <code>{requiredCsvHeaders.join(", ")}</code>
             <p>
               Dates use YYYY-MM-DD. Metric values must be non-negative whole numbers;
-              readinessScore must be from 0 to 100. Dates already in your data are rejected.
+              readinessScore is optional. Leave it blank if unknown, or enter 0–100. Dates already in your data are rejected.
             </p>
           </div>
+
+          <details>
+            <summary>Import earlier browser data</summary>
+            <p>Preview daily totals saved in this browser. Individual activities stay in the local copy.</p>
+            <button type="button" disabled={!session || pending || loading || Boolean(databaseError)} onClick={previewBrowserTotals}>Preview browser totals</button>
+          </details>
 
           {errors.length > 0 && (
             <div className={styles.errorBox} role="alert">
@@ -159,10 +206,10 @@ export default function ImportDataPage() {
               <div className={styles.previewHeading}>
                 <div>
                   <h3>Ready to import</h3>
-                  <p>{preview.length} valid records. Existing records will be kept.</p>
+                  <p>{preview.length} valid records for {session?.user.email}. Existing records will be kept.</p>
                 </div>
-                <button className={styles.importButton} type="button" onClick={handleImport}>
-                  Add records
+                <button className={styles.importButton} type="button" onClick={handleImport} disabled={pending || session?.user.id !== previewOwner}>
+                  {pending ? "Adding records…" : "Add records"}
                 </button>
               </div>
               <div className={styles.tableWrap}>
@@ -185,7 +232,7 @@ export default function ImportDataPage() {
                         <td>{metric.moveCalories}</td>
                         <td>{metric.restMinutes}</td>
                         <td>{metric.breatheMinutes}</td>
-                        <td>{metric.readinessScore}</td>
+                        <td>{metric.readinessScore ?? "—"}</td>
                       </tr>
                     ))}
                   </tbody>

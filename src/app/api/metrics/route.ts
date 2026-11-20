@@ -17,7 +17,7 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const isNonNegativeInteger = (value: unknown): value is number =>
-  Number.isSafeInteger(value) && Number(value) >= 0;
+  Number.isSafeInteger(value) && Number(value) >= 0 && Number(value) <= 2147483647;
 
 const parseEntries = (
   value: unknown,
@@ -67,7 +67,7 @@ const parseMetricBatch = (payload: unknown): DailyMetrics[] => {
 
     const date = typeof item.date === "string" ? item.date : "";
     const parsedDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T00:00:00.000Z`) : null;
-    if (!parsedDate || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) {
+    if (date.startsWith("0000") || !parsedDate || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) {
       throw new MetricsPayloadError("Dates must be real calendar dates in YYYY-MM-DD format.");
     }
     if (dates.has(date)) {
@@ -81,7 +81,11 @@ const parseMetricBatch = (payload: unknown): DailyMetrics[] => {
         throw new MetricsPayloadError(`${field} must be a non-negative whole number.`);
       }
     }
-    if (!isNonNegativeInteger(item.readinessScore) || item.readinessScore > 100) {
+    if (Number(item.restMinutes) > 1440 || Number(item.breatheMinutes) > 1440) {
+      throw new MetricsPayloadError("Daily minutes must be between 0 and 1440.");
+    }
+    const score = item.readinessScore ?? null;
+    if (score !== null && (!isNonNegativeInteger(score) || score > 100)) {
       throw new MetricsPayloadError("readinessScore must be a whole number between 0 and 100.");
     }
 
@@ -99,12 +103,12 @@ const parseMetricBatch = (payload: unknown): DailyMetrics[] => {
     }));
 
     const contributionTotals = [
-      [activities.reduce((total, entry) => total + entry.calories, 0), item.moveCalories],
-      [stepActivities.reduce((total, entry) => total + entry.steps, 0), item.steps],
-      [restPeriods.reduce((total, entry) => total + entry.durationMinutes, 0), item.restMinutes],
-      [breathworkSessions.reduce((total, entry) => total + entry.durationMinutes, 0), item.breatheMinutes],
+      [activities.length, activities.reduce((total, entry) => total + entry.calories, 0), item.moveCalories],
+      [stepActivities.length, stepActivities.reduce((total, entry) => total + entry.steps, 0), item.steps],
+      [restPeriods.length, restPeriods.reduce((total, entry) => total + entry.durationMinutes, 0), item.restMinutes],
+      [breathworkSessions.length, breathworkSessions.reduce((total, entry) => total + entry.durationMinutes, 0), item.breatheMinutes],
     ];
-    if (contributionTotals.some(([contributionTotal, dailyTotal]) => contributionTotal !== dailyTotal)) {
+    if (contributionTotals.some(([count, contributionTotal, dailyTotal]) => count !== 0 && contributionTotal !== dailyTotal)) {
       throw new MetricsPayloadError("Each contribution list must sum exactly to its daily metric total.");
     }
 
@@ -115,7 +119,7 @@ const parseMetricBatch = (payload: unknown): DailyMetrics[] => {
       moveCalories: item.moveCalories as number,
       restMinutes: item.restMinutes as number,
       breatheMinutes: item.breatheMinutes as number,
-      readinessScore: item.readinessScore as number,
+      readinessScore: score,
       activities,
       stepActivities,
       restPeriods,
@@ -165,6 +169,10 @@ export async function POST(request: Request) {
     return unauthorizedResponse();
   }
 
+  const previewOwner = request.headers.get("X-Baseline-Preview-Owner");
+  if (previewOwner !== null && previewOwner !== session.user.id) {
+    return NextResponse.json({ error: "Your account changed. Preview the records again." }, { status: 409 });
+  }
   let metrics: DailyMetrics[];
   try {
     metrics = parseMetricBatch(await request.json());

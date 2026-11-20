@@ -44,7 +44,7 @@ export type DailyMetrics = {
   moveCalories: number;
   restMinutes: number;
   breatheMinutes: number;
-  readinessScore: number;
+  readinessScore: number | null;
   activities: Activity[];
   stepActivities: StepActivity[];
   restPeriods: RestPeriod[];
