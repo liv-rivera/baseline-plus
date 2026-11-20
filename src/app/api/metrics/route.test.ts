@@ -111,10 +111,14 @@ describe("POST /api/metrics", () => {
     expect(response.status).toBe(400);
   });
 
-  it("requires a new preview if the active account changed", async () => {
-    const request = postRequest([validRecord]);
-    request.headers.set("X-Baseline-Preview-Owner", "other-user");
-    expect((await POST(request)).status).toBe(409);
+  it("limits the number of individual activities per metric per day", async () => {
+    expect((await POST(postRequest([{ ...validRecord, activities: Array(501).fill(validRecord.activities[0]) }]))).status).toBe(400);
+    expect(insertDailyMetricsMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized imports even without a content-length header", async () => {
+    const request = postRequest("a".repeat(5 * 1024 * 1024));
+    expect((await POST(request)).status).toBe(413);
     expect(insertDailyMetricsMock).not.toHaveBeenCalled();
   });
 

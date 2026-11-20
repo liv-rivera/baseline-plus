@@ -27,6 +27,8 @@ const parseEntries = (
     throw new MetricsPayloadError("Metric contribution lists must be arrays.");
   }
 
+  if (value.length > 500) throw new MetricsPayloadError("Each daily contribution list supports up to 500 entries.");
+
   return value.map((entry) => {
     if (!isObject(entry)) {
       throw new MetricsPayloadError("Metric contributions must be objects.");
@@ -129,7 +131,7 @@ const parseMetricBatch = (payload: unknown): DailyMetrics[] => {
 };
 
 const databaseUnavailableResponse = () => NextResponse.json(
-  { error: "PostgreSQL is not configured or reachable. Check DATABASE_URL and the database migrations." },
+  { error: "Your records are temporarily unavailable. Please try again." },
   { status: 503 },
 );
 
@@ -152,7 +154,7 @@ export async function GET(request: Request) {
     if (error instanceof DatabaseConfigurationError) {
       return databaseUnavailableResponse();
     }
-    console.error("Unable to read daily metrics from PostgreSQL.", error);
+    console.error("Unable to read daily metrics from PostgreSQL.");
     return databaseUnavailableResponse();
   }
 }
@@ -161,8 +163,8 @@ export async function POST(request: Request) {
   let session;
   try {
     session = await getRequestSession(request.headers);
-  } catch (error) {
-    console.error("Unable to validate the metrics API session.", error);
+  } catch {
+    console.error("Unable to validate the metrics API session.");
     return databaseUnavailableResponse();
   }
   if (!session) {
@@ -175,9 +177,30 @@ export async function POST(request: Request) {
   }
   let metrics: DailyMetrics[];
   try {
-    metrics = parseMetricBatch(await request.json());
+    const limit = 5 * 1024 * 1024;
+    const tooLarge = () => NextResponse.json({ error: "Split the import into batches smaller than 5 MiB." }, { status: 413 });
+    if (Number(request.headers.get("content-length")) > limit) return tooLarge();
+    const reader = request.body?.getReader();
+    if (!reader) throw new MetricsPayloadError("The import is empty.");
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > limit) {
+          await reader.cancel();
+          return tooLarge();
+        }
+        chunks.push(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    metrics = parseMetricBatch(JSON.parse(Buffer.concat(chunks).toString("utf8")));
   } catch (error) {
-    const message = error instanceof Error ? error.message : "The import payload is invalid.";
+    const message = error instanceof MetricsPayloadError ? error.message : "The import payload is invalid.";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
@@ -191,7 +214,7 @@ export async function POST(request: Request) {
     if (error instanceof DatabaseConfigurationError) {
       return databaseUnavailableResponse();
     }
-    console.error("Unable to import daily metrics into PostgreSQL.", error);
+    console.error("Unable to import daily metrics into PostgreSQL.");
     return databaseUnavailableResponse();
   }
 }

@@ -2,6 +2,8 @@
 
 Baseline is a personal recovery and activity dashboard. Daily records and their activity contributions are stored in PostgreSQL and served through the Next.js API.
 
+Development for these milestones uses [liv-rivera/baseline-plus](https://github.com/liv-rivera/baseline-plus). The older local Visual Studio checkout and its uncommitted metric-card CSS were unavailable in this workspace. The recovery implementation follows the resend work on the historical login branch. Review changes through draft pull requests before updating main.
+
 ## PostgreSQL Setup
 
 1. Create a PostgreSQL database with your provider or local PostgreSQL installation.
@@ -17,10 +19,11 @@ npm run db:migrate:providers
 npm run db:migrate:webhook-minimization
 npm run db:migrate:auth
 npm run db:migrate:optional-readiness
+npm run db:migrate:journal
 npm run db:seed
 ```
 
-The seed moves the existing three dashboard records and their contribution details into PostgreSQL. No metric values are embedded in the running application.
+The seed moves the existing three dashboard records and their contribution details into PostgreSQL. The separate read-only sample dashboard uses fictional values and does not query account records.
 
 4. With Node 22.12 or newer, install the pinned dependencies and start the app:
 
@@ -81,8 +84,27 @@ npm run test:coverage
 npm run build
 ```
 
-Run `npm run test:integration` with `DATABASE_URL` set to a fresh, empty disposable PostgreSQL database. The suite applies migrations 001–005 and exercises per-account reads and atomic writes.
+Run `npm run test:integration` with `DATABASE_URL` set to a fresh, empty disposable PostgreSQL database. The suite applies migrations 001–006 and exercises per-account reads and atomic writes.
 
 For the browser rehearsal, use a separate freshly migrated disposable database, a local Mailpit instance, `BASELINE_MAIL_TRANSPORT=mailpit`, and a fresh `qa-<uuid>@example.test` as `BASELINE_OWNER_EMAIL`. Set both app URLs to `http://localhost:3300`. Start the app with `npm run dev -- -H 127.0.0.1 -p 3300`. Export the same fixture owner and transport in the test shell. Run `npx playwright install chromium` once, then `npm run test:e2e` (or set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to a local Chromium). It exercises verification, import, reset-link reuse, credential change and session invalidation. To run the equivalent HTTP lifecycle checks against a separate fresh fixture, set `BASELINE_API_ONLY=1` in the test shell. The database and inbox should contain synthetic records only.
 
 Baseline is a personal software project and is not a medical device. It does not provide medical advice, diagnosis, or treatment recommendations.
+
+## Private journal and recovery rehearsal
+
+Settings offers password sign-in and optional Google linking. Configure the web client callback as `<BETTER_AUTH_URL>/api/auth/callback/google` and set both server-side Google variables. Verify the Baseline email and sign in again before linking. The Google account must use the same verified email. Test linking, signing out, Google sign-in, cancellation and disconnect with a dedicated owner fixture before using a real account. The implementation uses Better Auth 1.7.6, its internal account ID for unlinking, and the identity scopes openid, email and profile. See the [account linking guide](https://better-auth.com/docs/concepts/users-accounts) and [Google provider guide](https://better-auth.com/docs/authentication/google).
+
+The daily journal uses the selected local date. A check-in may exist without totals. Edits require the revision that was displayed, so a stale tab cannot overwrite another save. Manual corrections keep the original source and are labeled in the journal and export. Corrected imports are compared with other corrected imports. A total with underlying activities can be removed with confirmation but cannot be edited independently of its activities. The signed-in JSON download includes all saved daily totals, activity details and check-ins, including dates outside the dashboard window. Store downloaded files privately.
+
+### Backup and deletion
+
+Account deletion requires the current password and explicit confirmation. The active database removes the account, sign-in methods, sessions, daily records and check-ins. An older database snapshot can still contain those records. Before enabling backups for real data, agree on an expiry period and deletion reconciliation with the owner and configure the storage provider accordingly.
+
+For a disposable rehearsal, use two synthetic accounts in an isolated local PostgreSQL instance. Save an offline backup before deleting the first fixture. Restore into a separate offline instance with email delivery and public access disabled. Reapply approved deletions since the snapshot using the original account UUIDs and invalidate restored sessions and outstanding verification tokens before permitting access. Verify the deleted fixture has no rows and the retained fixture still has its original totals and check-ins. Destroy the disposable backup after verification. Treat any snapshot with an unknown deletion history as unsuitable for serving user traffic.
+
+
+### Private release checks
+
+The fixture tests cover password and simulated Google sign-ins for the same user ID, cancelled consent, a mismatched email, an unverified identity, a provider identity owned by a second fixture, repeated callbacks, and unlinking. Real owner Google consent and delivery to the owner mailbox are separate acceptance steps.
+
+Use the sample CSV in `public/examples` to exercise daily intake. The JSON API accepts up to 5 MiB per request, 5,000 dates, and 500 entries in each contribution list per day. To inspect availability locally, request the public sample dashboard, then verify that a signed-out request to `/api/export` returns 401. A signed-in read of the journal checks database availability. Keep request bodies, query strings, cookies, and export contents out of logs. For a failed release, stop the new process and start the prior application against a compatible schema. Preserve nullable scores and journal tables when rolling back application code. Restore a snapshot only into an isolated target and reconcile deletions before serving it.

@@ -1,3 +1,4 @@
+import { exerciseJournal } from "./journal-journey";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 
@@ -60,6 +61,8 @@ test("a private owner verifies, imports a summary and recovers access on mobile"
   await page.getByRole("button", { name: "Add records" }).click();
   await expect(page.getByText(/1 record added to your account/)).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem("baseline.importedMetrics.v1"))).toBe(localRecords);
+
+  await exerciseJournal(page, origin);
 
   // A separate signed-out client requests the reset. The verified browser still has its original session.
   await request.post("/api/auth/request-password-reset", { data: { email: owner, redirectTo: "/recover" }, headers: { origin } });

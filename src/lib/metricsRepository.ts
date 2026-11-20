@@ -5,6 +5,8 @@ import { getDatabasePool } from "@/lib/database";
 import type { Averages, DailyMetrics } from "@/types/metrics";
 
 type MetricRow = {
+  manually_corrected: boolean;
+  check_in: DailyMetrics["checkIn"] | null;
   id: string;
   metric_date: string;
   steps: number;
@@ -37,9 +39,11 @@ export async function readDailyMetrics(userId: string): Promise<DailyMetrics[]> 
   const pool = getDatabasePool();
   const metricResult = await pool.query<MetricRow>(
     `SELECT id, metric_date::text, steps, move_calories, rest_minutes,
-            breathwork_minutes, readiness_score, source
-       FROM daily_metrics
-      WHERE user_id = $1
+            breathwork_minutes, readiness_score, source, manually_corrected,
+               (SELECT json_build_object('energy', energy, 'soreness', soreness)
+               FROM daily_check_ins c WHERE c.user_id = m.user_id AND c.local_date = m.metric_date) AS check_in
+       FROM daily_metrics m
+      WHERE m.user_id = $1
       ORDER BY metric_date DESC
       LIMIT $2`,
     [userId, queryLimit],
@@ -64,6 +68,8 @@ export async function readDailyMetrics(userId: string): Promise<DailyMetrics[]> 
     recordById.set(row.id, {
       date: row.metric_date,
       source: row.source,
+      manuallyCorrected: row.manually_corrected,
+      ...(row.check_in && { checkIn: row.check_in }),
       steps: row.steps,
       moveCalories: row.move_calories,
       restMinutes: row.rest_minutes,
