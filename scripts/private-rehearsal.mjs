@@ -1,9 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  symlink,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import assert from "node:assert/strict";
+import { hashPassword } from "better-auth/crypto";
 import { Pool } from "pg";
 
 // Creates and removes only databases with this run's generated identifiers.
@@ -103,12 +111,17 @@ try {
         ).rows[0].id;
         const other = randomUUID();
         await pool.query(
-          "INSERT INTO users(id,email,display_name) VALUES($1,$2,'Restore fixture')",
+          "INSERT INTO users(id,email,display_name,email_verified) VALUES($1,$2,'Restore fixture',true)",
           [other, other + "@example.test"],
         );
         await pool.query(
           "INSERT INTO daily_check_ins(user_id,local_date,note) VALUES($1,'2026-11-01','Synthetic only')",
           [other],
+        );
+        const rollbackPassword = randomUUID();
+        await pool.query(
+          "INSERT INTO user_accounts(id,user_id,account_id,provider_id,password) VALUES($1,$2,$3,'credential',$4)",
+          [randomUUID(), other, other, await hashPassword(rollbackPassword)],
         );
         const backup = path.join(root, "snapshot.dump");
         await execute("pg_dump", ["--format=custom", "--file", backup], {
@@ -159,6 +172,65 @@ try {
               )
             ).rowCount,
             1,
+          );
+          const rollback = path.join(root, "prior-release");
+          await mkdir(rollback);
+          const archive = path.join(root, "prior-release.tar");
+          await execute("git", [
+            "archive",
+            "--format=tar",
+            "--output",
+            archive,
+            "72d2f2cad04747b3cff140d901fd8be8288ceb18",
+          ]);
+          await execute("tar", ["-xf", archive, "-C", rollback]);
+          await symlink(
+            path.resolve("node_modules"),
+            path.join(rollback, "node_modules"),
+            "dir",
+          );
+          // Webpack resolves this disposable shared dependency directory explicitly.
+          app = spawn(
+            process.execPath,
+            [
+              path.resolve("node_modules/next/dist/bin/next"),
+              "dev",
+              "--webpack",
+              "-H",
+              "127.0.0.1",
+              "-p",
+              "3300",
+            ],
+            {
+              cwd: rollback,
+              env: { ...env, DATABASE_URL: restoreUrl },
+              stdio: "ignore",
+            },
+          );
+          await ready(origin + "/demo");
+          const signIn = await fetch(origin + "/api/auth/sign-in/email", {
+            method: "POST",
+            headers: { origin, "content-type": "application/json" },
+            body: JSON.stringify({
+              email: other + "@example.test",
+              password: rollbackPassword,
+            }),
+          });
+          assert.equal(signIn.status, 200);
+          const cookie = signIn.headers
+            .getSetCookie()
+            .map((value) => value.split(";")[0])
+            .join("; ");
+          const exported = await fetch(origin + "/api/export", {
+            headers: { cookie },
+          });
+          assert.equal(exported.status, 200);
+          const recovered = await exported.json();
+          assert.equal(recovered.check_ins.length, 1);
+          assert.equal(recovered.check_ins[0].note, "Synthetic only");
+          await stopApp();
+          console.log(
+            "PASS previous release rollback with retained-account sign-in and export.",
           );
           console.log(
             "PASS synthetic backup, offline restore, deletion reconciliation and retained-account check.",
