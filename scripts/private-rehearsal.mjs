@@ -9,7 +9,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import assert from "node:assert/strict";
 import { hashPassword } from "better-auth/crypto";
 import { Pool } from "pg";
@@ -68,6 +68,18 @@ async function stopApp() {
   });
 }
 try {
+  const serverMajor = Math.floor(
+    Number(
+      (await admin.query("SHOW server_version_num")).rows[0].server_version_num,
+    ) / 10000,
+  );
+  for (const utility of ["pg_dump", "pg_restore"]) {
+    const version = execFileSync(utility, ["--version"], { encoding: "utf8" });
+    if (Number(version.match(/(\d+)\./)?.[1]) !== serverMajor)
+      throw new Error(
+        "Use pg_dump and pg_restore from the PostgreSQL server's major version.",
+      );
+  }
   await ready("http://127.0.0.1:8025/readyz");
   for (const mode of ["browser", "api"]) {
     const dbUrl = await database(mode);

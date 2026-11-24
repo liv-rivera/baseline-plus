@@ -126,6 +126,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Use PostgreSQL 16 backup utilities
+        run: |
+          if [ ! -x /usr/lib/postgresql/16/bin/pg_dump ]; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client-16
+          fi
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
       - run: npx playwright install --with-deps chromium
       - uses: actions/setup-go@v5
         with:
