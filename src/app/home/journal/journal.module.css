@@ -31,3 +31,7 @@
   cursor: pointer;
   justify-self: start;
 }
+
+.page {overflow-wrap:anywhere;}
+.page input,.page textarea,.page select {max-width:100%;min-width:0;}
+.page :focus-visible {outline:3px solid #8d412c;outline-offset:3px;}

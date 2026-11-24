@@ -70,6 +70,12 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
       }
       await pool.query(sql);
     }
+    await pool.query(
+      readFileSync(
+        path.join(__dirname, "..", "..", "database", "seed.sql"),
+        "utf8",
+      ),
+    );
   });
 
   afterAll(async () => {
@@ -161,6 +167,74 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
       ),
     ).toBe("Saved.");
     expect((await readDay(userId, date)).checkIn).toBeUndefined();
+  });
+
+  it("keeps absent check-ins absent and resolves concurrent saves without overwriting", async () => {
+    const { changeDay, readDay } = await import("./journal");
+    const date = "2026-04-10";
+    expect((await readDay(userId, date)).checkIn).toBeUndefined();
+    const values = { date, action: "context", note: "Synthetic only" };
+    const saves = await Promise.all([
+      changeDay(userId, entry(values)),
+      changeDay(userId, entry(values)),
+    ]);
+    expect(saves.filter((value) => value === "Saved.")).toHaveLength(1);
+    expect(
+      (
+        await pool.query(
+          "SELECT 1 FROM daily_check_ins WHERE user_id=$1 AND local_date=$2",
+          [userId, date],
+        )
+      ).rowCount,
+    ).toBe(1);
+    expect(await changeDay(userId, entry({ date, action: "context" }))).toMatch(
+      /Choose/,
+    );
+    expect((await readDay(legacyUser, date)).checkIn).toBeUndefined();
+  });
+
+  it("removes a detailed day and all its contributions without changing another account", async () => {
+    const { insertDailyMetrics } = await import("./metricsRepository");
+    const { changeDay, readDay } = await import("./journal");
+    const date = "2026-04-11";
+    await insertDailyMetrics(userId, [makeMetric(date)]);
+    const id = (
+      await pool.query(
+        "SELECT id FROM daily_metrics WHERE user_id=$1 AND metric_date=$2",
+        [userId, date],
+      )
+    ).rows[0].id;
+    const metric = (await readDay(userId, date)).metric;
+    expect(
+      await changeDay(
+        legacyUser,
+        entry({
+          date,
+          action: "delete-metric",
+          revision: metric.revision,
+          confirm: "yes",
+        }),
+      ),
+    ).toMatch(/Reload/);
+    expect(
+      await changeDay(
+        userId,
+        entry({
+          date,
+          action: "delete-metric",
+          revision: metric.revision,
+          confirm: "yes",
+        }),
+      ),
+    ).toBe("Saved.");
+    expect(
+      (
+        await pool.query(
+          "SELECT 1 FROM metric_contributions WHERE daily_metric_id=$1",
+          [id],
+        )
+      ).rowCount,
+    ).toBe(0);
   });
 
   it("preserves the original source and readiness score on a manual correction to an import", async () => {
