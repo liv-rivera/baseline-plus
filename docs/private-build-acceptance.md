@@ -1,6 +1,6 @@
 # Private build acceptance
 
-The canonical repository is https://github.com/liv-rivera/baseline-plus. Use baseline-plus-repo as the local checkout. Historical copies and local-only email-testing work are preserved under the adjacent repo-archive folder. The historical feat/create-login branch is retained. Its verification resend used direct client calls and development-copy differences. Main shares the server account sender and recovery form, with neutral responses, an owner allowlist and throttled endpoints. The old form should not replace the current accepted login design.
+The canonical repository is https://github.com/liv-rivera/baseline-plus. Use baseline-plus-repo as the local checkout. Historical copies and local-only email-testing work are preserved under the adjacent repo-archive folder. The historical feat/create-login branch is retained. Its a64ba66 form uses a localVerificationLink prop to direct developers to terminal-printed verification links. The current form removes that development copy and exposes resend and recovery routes. Main shares the server account sender and recovery form, with neutral responses, an owner allowlist and throttled endpoints. The old form should not replace the current accepted login design.
 
 ## Data and comparisons
 
