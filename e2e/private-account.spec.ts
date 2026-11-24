@@ -141,7 +141,11 @@ test("a private owner verifies, imports a summary and recovers access on mobile"
   await expect(page.getByRole("status")).toContainText("Password updated");
   expect((await page.request.get("/api/metrics")).status()).toBe(401);
   await page.goto(resetLink.href);
-  await expect(page.getByRole("alert")).toContainText("invalid or expired");
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "This link is invalid or expired" }),
+  ).toContainText("invalid or expired");
   await page.getByRole("link", { name: "Back to login" }).click();
   const login = page.getByRole("form", { name: "Log in form" });
   await login.getByLabel("Email").fill(owner);
