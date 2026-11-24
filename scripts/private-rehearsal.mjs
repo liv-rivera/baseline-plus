@@ -124,9 +124,14 @@ try {
           [randomUUID(), other, other, await hashPassword(rollbackPassword)],
         );
         const backup = path.join(root, "snapshot.dump");
+        const backupConnection = new URL(dbUrl);
         await execute("pg_dump", ["--format=custom", "--file", backup], {
           ...process.env,
-          PGDATABASE: dbUrl,
+          PGHOST: backupConnection.hostname,
+          PGPORT: backupConnection.port,
+          PGUSER: decodeURIComponent(backupConnection.username),
+          PGPASSWORD: decodeURIComponent(backupConnection.password),
+          PGDATABASE: backupConnection.pathname.slice(1),
         });
         // Reconcile a deletion made after the snapshot and invalidate recovered access.
         await pool.query("DELETE FROM users WHERE id=$1", [owner]);
