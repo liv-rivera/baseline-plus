@@ -525,6 +525,43 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
     ).toBe(1);
   });
 
+  it("rejects missing and expired verification links and safely repeats a valid link", async () => {
+    const { auth } = await import("./auth");
+    const { createEmailVerificationToken } = await import("better-auth/api");
+    const origin = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+    const email = userId + "@example.com";
+    const secret = (await auth.$context).secret;
+    const expired = await createEmailVerificationToken(
+      secret,
+      email,
+      undefined,
+      -60,
+    );
+    const verify = (token?: string) =>
+      auth.handler(
+        new Request(
+          origin +
+            "/api/auth/verify-email" +
+            (token ? "?token=" + encodeURIComponent(token) : ""),
+        ),
+      );
+    expect((await verify()).ok).toBe(false);
+    expect((await verify(expired)).ok).toBe(false);
+    expect(
+      (
+        await pool.query("SELECT email_verified FROM users WHERE id=$1", [
+          userId,
+        ])
+      ).rows[0].email_verified,
+    ).toBe(false);
+    const valid = await createEmailVerificationToken(secret, email);
+    expect((await verify(valid)).ok).toBe(true);
+    expect((await verify(valid)).ok).toBe(true);
+    expect(
+      (await pool.query("SELECT id FROM users WHERE email=$1", [email])).rows,
+    ).toEqual([{ id: userId }]);
+  });
+
   it("preserves a pre-migration record with a genuine zero score", async () => {
     const { readDailyMetrics } = await import("@/lib/metricsRepository");
     expect(await readDailyMetrics(legacyUser)).toMatchObject([
