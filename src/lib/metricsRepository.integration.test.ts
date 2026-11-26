@@ -655,6 +655,91 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
     expect(metrics[0].date).toBe("2026-01-01");
   });
 
+  it("isolates overlapping dates across sessions and rejects expired or signed-out sessions", async () => {
+    const { auth } = await import("./auth");
+    const { hashPassword } = await import("better-auth/crypto");
+    const { GET, POST } = await import("@/app/api/metrics/route");
+    const { changeDay } = await import("./journal");
+    const other = randomUUID();
+    await pool.query(
+      "INSERT INTO users(id,email,display_name,email_verified) VALUES($1,$2,'Second session fixture',true)",
+      [other, other + "@example.test"],
+    );
+    await pool.query("UPDATE users SET email_verified=true WHERE id=$1", [
+      userId,
+    ]);
+    const origin = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+    const ids = [userId, other];
+    const postAuth = (route: string, body: object, cookie = "") =>
+      auth.handler(
+        new Request(origin + "/api/auth/" + route, {
+          method: "POST",
+          headers: { origin, "content-type": "application/json", cookie },
+          body: JSON.stringify(body),
+        }),
+      );
+    expect((await GET(new Request(origin + "/api/metrics"))).status).toBe(401);
+    for (const [index, id] of ids.entries()) {
+      const password = randomUUID();
+      const email = (
+        await pool.query("SELECT email FROM users WHERE id=$1", [id])
+      ).rows[0].email;
+      await pool.query(
+        "INSERT INTO user_accounts(id,account_id,provider_id,user_id,password) VALUES($1,$2,'credential',$3,$4)",
+        [randomUUID(), id, id, await hashPassword(password)],
+      );
+      await changeDay(
+        id,
+        entry({
+          date: "2026-11-12",
+          action: "metric",
+          steps: String(index + 1),
+          calories: "0",
+          rest: "0",
+          breathe: "0",
+        }),
+      );
+      async function login() {
+        const response = await postAuth("sign-in/email", { email, password });
+        expect(response.status).toBe(200);
+        return response.headers
+          .getSetCookie()
+          .map((value) => value.split(";")[0])
+          .join("; ");
+      }
+      let cookie = await login();
+      const request = () =>
+        new Request(origin + "/api/metrics?userId=" + ids[1 - index], {
+          headers: { cookie },
+        });
+      expect(await (await GET(request())).json()).toMatchObject({
+        metrics: [{ date: "2026-11-12", steps: index + 1 }],
+      });
+      const wrongPreview = new Request(origin + "/api/metrics", {
+        method: "POST",
+        headers: {
+          cookie,
+          "X-Baseline-Preview-Owner": ids[1 - index],
+          "content-type": "application/json",
+        },
+        body: JSON.stringify([makeMetric("2026-11-13")]),
+      });
+      expect((await POST(wrongPreview)).status).toBe(409);
+      expect(
+        (await pool.query("SELECT 1 FROM daily_metrics WHERE user_id=$1", [id]))
+          .rowCount,
+      ).toBe(1);
+      await pool.query(
+        "UPDATE user_sessions SET expires_at=now()-interval '1 minute' WHERE user_id=$1",
+        [id],
+      );
+      expect((await GET(request())).status).toBe(401);
+      cookie = await login();
+      expect((await postAuth("sign-out", {}, cookie)).status).toBe(200);
+      expect((await GET(request())).status).toBe(401);
+    }
+  });
+
   it("returns zeroed averages for a user with no records", async () => {
     const { readMetricAverages } = await import("@/lib/metricsRepository");
     const averages = await readMetricAverages(userId);

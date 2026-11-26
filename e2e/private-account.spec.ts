@@ -61,6 +61,7 @@ test("a private owner verifies, imports a summary and recovers access on mobile"
   await expect(
     page.getByRole("heading", { name: "Dashboard", exact: true }),
   ).toBeVisible();
+  const intakeStarted = performance.now();
   await page.getByRole("link", { name: "Import data" }).click();
   await expect(page.locator('input[type="file"]')).toBeEnabled();
   await page.locator('input[type="file"]').setInputFiles({
@@ -75,6 +76,42 @@ test("a private owner verifies, imports a summary and recovers access on mobile"
   await expect(
     page.getByText("No score recorded for this date."),
   ).toBeVisible();
+
+  const imported = await (await page.request.get("/api/metrics")).json();
+  expect(imported.metrics[0].date).toBe("2026-11-01");
+  console.log(
+    `Synthetic CSV intake completed in ${((performance.now() - intakeStarted) / 1000).toFixed(1)} seconds.`,
+  );
+  await page.getByRole("link", { name: "Import data" }).click();
+  await page
+    .getByLabel("CSV file")
+    .setInputFiles({
+      name: "repeat.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(
+        "date,steps,moveCalories,restMinutes,breatheMinutes\n2026-11-01,100,5,0,10",
+      ),
+    });
+  await expect(
+    page.getByRole("alert").filter({ hasText: "already exists" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add records" })).toHaveCount(
+    0,
+  );
+  await page
+    .getByLabel("CSV file")
+    .setInputFiles({
+      name: "malformed.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from("date,steps\n2026-11-02,100"),
+    });
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Required columns" }),
+  ).toBeVisible();
+  expect(
+    (await (await page.request.get("/api/metrics")).json()).metrics,
+  ).toHaveLength(1);
+  await page.getByRole("link", { name: "Back to dashboard" }).click();
 
   const localRecords = JSON.stringify([
     {
@@ -98,7 +135,7 @@ test("a private owner verifies, imports a summary and recovers access on mobile"
   const before = await (await page.request.get("/api/metrics")).json();
   expect(before.metrics).toHaveLength(1);
   await page.getByRole("button", { name: "Add records" }).click();
-  await expect(page.getByText(/1 record added to your account/)).toBeVisible();
+  await expect(page.getByText(/1 record added/)).toBeVisible();
   expect(
     await page.evaluate(() =>
       localStorage.getItem("baseline.importedMetrics.v1"),
@@ -140,6 +177,9 @@ test("a private owner verifies, imports a summary and recovers access on mobile"
   await page.getByRole("button", { name: "Save password" }).click();
   await expect(page.getByRole("status")).toContainText("Password updated");
   expect((await page.request.get("/api/metrics")).status()).toBe(401);
+  expect((await page.request.get("/home", { maxRedirects: 0 })).status()).toBe(
+    307,
+  );
   await page.goto(resetLink.href);
   await expect(
     page
