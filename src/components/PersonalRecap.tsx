@@ -26,6 +26,7 @@ export function PersonalRecap({
     window,
     metric,
   );
+  const latestValue = latest[metric];
   return (
     <section aria-labelledby="recap">
       <h2 id="recap">Personal comparisons</h2>
@@ -53,14 +54,16 @@ export function PersonalRecap({
         </select>
       </label>
       <p>
-        {latest.date}: {latest[metric]} · Source:{" "}
-        {latest.source ?? "unspecified"}
+        {latest.date}: {latest[metric] ?? "not recorded"} · Source:{" "}
+        {latest.source === "apple_health" ? "Apple Health" : latest.source ?? "unspecified"}
         {latest.manuallyCorrected && " · Manually corrected"}
       </p>
       <p>
         {reference.median === null
           ? "Too few comparable days for a baseline."
-          : `Prior median: ${reference.median}. Latest difference: ${latest[metric] - reference.median}.`}
+          : latestValue === null
+            ? `Prior median: ${reference.median}. Nothing recorded for the latest day.`
+            : `Prior median: ${reference.median}. Latest difference: ${latestValue - reference.median}.`}
       </p>
       <h3>Weekly recap</h3>
       <p>
@@ -105,7 +108,7 @@ export function PersonalRecap({
       ))}
       <p>
         Comparisons use the same entry method. CSV files do not identify the
-        device.
+        device. Days with nothing recorded for this metric are left out.
       </p>
     </section>
   );

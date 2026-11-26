@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useDailyMetrics } from "@/lib/useDailyMetrics";
 import type { DailyMetrics } from "@/types/metrics";
 import { requiredCsvHeaders, templateHeaders, validateAndParseCsvRows, validateCsvHeaders } from "@/lib/csvImportValidation";
+import { AppleHealthImport } from "./AppleHealthImport";
 import styles from "./page.module.css";
 
 const downloadTemplate = () => {
@@ -155,6 +156,14 @@ export default function ImportDataPage() {
           </p>
         </header>
 
+        <AppleHealthImport
+          ownerId={session?.user.id}
+          ownerEmail={session?.user.email}
+          savedDates={new Set(existingMetrics.map((metric) => metric.date))}
+          disabled={!session || loading || Boolean(databaseError)}
+          onImported={refresh}
+        />
+
         <section className={styles.importPanel} aria-labelledby="upload-title">
           <div className={styles.panelHeading}>
             <div>
@@ -229,7 +238,7 @@ export default function ImportDataPage() {
                     {preview.map((metric) => (
                       <tr key={metric.date}>
                         <td>{metric.date}</td>
-                        <td>{metric.steps.toLocaleString("en-US")}</td>
+                        <td>{metric.steps?.toLocaleString("en-US")}</td>
                         <td>{metric.moveCalories}</td>
                         <td>{metric.restMinutes}</td>
                         <td>{metric.breatheMinutes}</td>

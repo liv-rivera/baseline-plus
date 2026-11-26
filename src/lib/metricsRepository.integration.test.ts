@@ -12,6 +12,7 @@ import {
   vi,
 } from "vitest";
 import type { DailyMetrics } from "@/types/metrics";
+import { collectAppleHealthXml } from "./appleHealth/collector";
 
 // Requires a reachable Postgres instance via DATABASE_URL (see .github/workflows/ci.yml's test-integration job).
 const databaseUrl = process.env.DATABASE_URL;
@@ -23,6 +24,7 @@ const migrationFiles = [
   "004_auth.sql",
   "005_optional_readiness.sql",
   "006_check_ins.sql",
+  "007_apple_health_source.sql",
 ];
 
 const makeMetric = (
@@ -161,6 +163,65 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
       ),
     ).toBe("Saved.");
     expect((await readDay(userId, date)).checkIn).toBeUndefined();
+  });
+
+  it("imports an Apple Health export twice without touching days already saved", async () => {
+    const { insertNewDailyMetrics, readDailyMetrics, readMetricAverages } = await import("./metricsRepository");
+    const { changeDay, readDay } = await import("./journal");
+    const xml = readFileSync(path.join(__dirname, "..", "test", "fixtures", "apple-health", "export.xml"), "utf8");
+    const toMetrics = (days: ReturnType<typeof collectAppleHealthXml>["days"]): DailyMetrics[] =>
+      days.map((day) => ({
+        date: day.date,
+        steps: day.steps,
+        moveCalories: day.moveCalories,
+        restMinutes: day.restMinutes,
+        breatheMinutes: day.breatheMinutes,
+        source: "apple_health",
+        readinessScore: null,
+        activities: [],
+        stepActivities: [],
+        restPeriods: [],
+        breathworkSessions: [],
+      }));
+    const { days } = collectAppleHealthXml(xml);
+
+    // The first export covers 2 to 4 Nov. 3 Nov is corrected by hand afterwards.
+    expect(await insertNewDailyMetrics(userId, toMetrics(days.slice(0, 3)))).toEqual({ inserted: 3, skippedDates: [] });
+    const corrected = await readDay(userId, "2026-11-03");
+    expect(corrected.metric).toMatchObject({ steps: 2100, rest: null, breathe: null });
+    expect(await changeDay(userId, entry({
+      date: "2026-11-03", action: "metric", revision: corrected.metric.revision,
+      steps: "2200", calories: "29", rest: "", breathe: "",
+    }))).toBe("Saved.");
+
+    // A newer export overlaps those days and adds 5 Nov.
+    expect(await insertNewDailyMetrics(userId, toMetrics(days))).toEqual({
+      inserted: 1,
+      skippedDates: ["2026-11-02", "2026-11-03", "2026-11-04"],
+    });
+
+    const saved = await readDailyMetrics(userId);
+    expect(saved.map((day) => [day.date, day.source, day.steps, day.restMinutes])).toEqual([
+      ["2026-11-02", "apple_health", 5500, 440],
+      ["2026-11-03", "apple_health", 2200, null],
+      ["2026-11-04", "apple_health", 6800, null],
+      ["2026-11-05", "apple_health", 3000, 420],
+    ]);
+    expect(saved[1].manuallyCorrected).toBe(true);
+    // Blank totals are left out of averages rather than counted as zero.
+    expect((await readMetricAverages(userId)).restMinutes).toBe(430);
+  });
+
+  it("rejects a day with no totals at all and sources it doesn't know", async () => {
+    const id = () => randomUUID();
+    await expect(pool.query(
+      "INSERT INTO daily_metrics (id, user_id, metric_date, source) VALUES ($1, $2, '2026-11-09', 'apple_health')",
+      [id(), userId],
+    )).rejects.toThrow(/daily_metrics_has_a_total_check/);
+    await expect(pool.query(
+      "INSERT INTO daily_metrics (id, user_id, metric_date, steps, source) VALUES ($1, $2, '2026-11-09', 10, 'garmin')",
+      [id(), userId],
+    )).rejects.toThrow(/daily_metrics_source_check/);
   });
 
   it("preserves the original source and readiness score on a manual correction to an import", async () => {

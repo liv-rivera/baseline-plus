@@ -2,19 +2,19 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { getDatabasePool } from "@/lib/database";
-import type { Averages, DailyMetrics } from "@/types/metrics";
+import type { Averages, DailyMetrics, MetricSource } from "@/types/metrics";
 
 type MetricRow = {
   manually_corrected: boolean;
   check_in: DailyMetrics["checkIn"] | null;
   id: string;
   metric_date: string;
-  steps: number;
-  move_calories: number;
-  rest_minutes: number;
-  breathwork_minutes: number;
+  steps: number | null;
+  move_calories: number | null;
+  rest_minutes: number | null;
+  breathwork_minutes: number | null;
   readiness_score: number | null;
-  source: "demo" | "import" | "manual";
+  source: MetricSource;
 };
 
 type ContributionRow = {
@@ -179,7 +179,22 @@ const getContributions = (metric: DailyMetrics, dailyMetricId: string): InsertCo
   })),
 ];
 
+export type InsertNewResult = { inserted: number; skippedDates: string[] };
+
+/** Inserts every record, or none if any date already has one. */
 export async function insertDailyMetrics(userId: string, metrics: DailyMetrics[]): Promise<number> {
+  return (await insertMetrics(userId, metrics, false)).inserted;
+}
+
+/**
+ * Inserts records for dates that don't have one yet and leaves the rest alone,
+ * so a newer export that overlaps saved days can be imported again.
+ */
+export async function insertNewDailyMetrics(userId: string, metrics: DailyMetrics[]): Promise<InsertNewResult> {
+  return insertMetrics(userId, metrics, true);
+}
+
+async function insertMetrics(userId: string, metrics: DailyMetrics[], skipExisting: boolean): Promise<InsertNewResult> {
   const pool = getDatabasePool();
   const client = await pool.connect();
   const metricIds = metrics.map(() => randomUUID());
@@ -211,11 +226,15 @@ export async function insertDailyMetrics(userId: string, metrics: DailyMetrics[]
       ],
     );
 
-    if (insertedMetrics.rows.length !== metrics.length) {
+    if (!skipExisting && insertedMetrics.rows.length !== metrics.length) {
       throw new DuplicateMetricDateError();
     }
 
-    const contributions = metrics.flatMap((metric, index) => getContributions(metric, metricIds[index]));
+    // Dates are unique within a batch, so they identify which rows went in.
+    const insertedDates = new Set(insertedMetrics.rows.map((row) => row.metric_date));
+    const contributions = metrics.flatMap((metric, index) =>
+      insertedDates.has(metric.date) ? getContributions(metric, metricIds[index]) : [],
+    );
     if (contributions.length > 0) {
       await client.query(
         `INSERT INTO metric_contributions (
@@ -236,7 +255,10 @@ export async function insertDailyMetrics(userId: string, metrics: DailyMetrics[]
     }
 
     await client.query("COMMIT");
-    return insertedMetrics.rows.length;
+    return {
+      inserted: insertedMetrics.rows.length,
+      skippedDates: metrics.map((metric) => metric.date).filter((date) => !insertedDates.has(date)),
+    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

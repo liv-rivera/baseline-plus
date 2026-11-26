@@ -22,10 +22,12 @@
     "db:seed": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/seed.sql",
     "db:migrate:optional-readiness": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/005_optional_readiness.sql",
     "test:e2e": "playwright test",
-    "db:migrate:journal": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/006_check_ins.sql"
+    "db:migrate:journal": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/006_check_ins.sql",
+    "db:migrate:apple-health": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/007_apple_health_source.sql"
   },
   "dependencies": {
     "better-auth": "^1.7.6",
+    "fflate": "^0.8.2",
     "lucide-react": "^1.48.0",
     "next": "16.3.3",
     "papaparse": "^5.7.0",

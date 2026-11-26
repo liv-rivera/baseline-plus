@@ -18,6 +18,8 @@ const formatSignedMetric = (value: number | null) => {
   return value > 0 ? `+${value.toLocaleString("en-US")}` : value.toLocaleString("en-US");
 };
 
+const formatMetric = (value: number | null) => value === null ? "—" : value.toLocaleString("en-US");
+
 export default function Home() {
   const { metrics: dailyMetrics, averages, loading, error } = useDailyMetrics();
   const latest = dailyMetrics[dailyMetrics.length - 1];
@@ -57,10 +59,10 @@ export default function Home() {
   const trends: Trends = calculateTrend(dailyMetrics);
   const changes: Changes = calculateChange(averages, latest);
   const todayMetrics = [
-    { label: "Steps", value: latest.steps.toLocaleString("en-US") },
-    { label: "Move calories", value: latest.moveCalories.toLocaleString("en-US") },
-    { label: "Rest (min)", value: latest.restMinutes.toLocaleString("en-US") },
-    { label: "Breathwork (min)", value: latest.breatheMinutes.toLocaleString("en-US") },
+    { label: "Steps", value: formatMetric(latest.steps) },
+    { label: "Move calories", value: formatMetric(latest.moveCalories) },
+    { label: "Rest (min)", value: formatMetric(latest.restMinutes) },
+    { label: "Breathwork (min)", value: formatMetric(latest.breatheMinutes) },
   ];
   const trendMetrics = [
     { label: "Steps", value: trends.steps },
@@ -104,7 +106,7 @@ export default function Home() {
           <div className={styles.readinessCopy}>
             <p className={styles.eyebrow}>RECOVERY CHECK-IN</p>
             <h2 id="readiness-title">Readiness</h2>
-            <p className={styles.readinessDescription}>{latest.readinessScore === null ? "No score recorded for this date." : latest.source === "import" ? "Score supplied in your import" : latest.source === "demo" ? "Example score" : "Recorded score"}</p>
+            <p className={styles.readinessDescription}>{latest.readinessScore === null ? "No score recorded for this date." : latest.source === "import" ? "Score supplied in your import" : latest.source === "apple_health" ? "Apple Health doesn't provide a readiness score." : latest.source === "demo" ? "Example score" : "Recorded score"}</p>
           </div>
           {latest.readinessScore !== null && <ReadinessGauge score={latest.readinessScore} />}
         </section>
