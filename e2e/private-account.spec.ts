@@ -83,6 +83,7 @@ test("a private owner verifies, imports a summary and recovers access on mobile"
     `Synthetic CSV intake completed in ${((performance.now() - intakeStarted) / 1000).toFixed(1)} seconds.`,
   );
   await page.getByRole("link", { name: "Import data" }).click();
+  await expect(page.getByLabel("CSV file")).toBeEnabled();
   await page
     .getByLabel("CSV file")
     .setInputFiles({
