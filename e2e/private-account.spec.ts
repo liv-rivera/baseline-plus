@@ -113,6 +113,8 @@ test("a private owner verifies, imports a summary and recovers access on mobile"
     (await (await page.request.get("/api/metrics")).json()).metrics,
   ).toHaveLength(1);
   await page.getByRole("link", { name: "Back to dashboard" }).click();
+  await expect(page).toHaveURL(origin + "/home");
+  await expect(page.getByRole("link", { name: "Import data" })).toBeVisible();
 
   const localRecords = JSON.stringify([
     {
