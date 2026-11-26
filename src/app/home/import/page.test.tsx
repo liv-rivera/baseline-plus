@@ -121,14 +121,12 @@ it("keeps the preview account visible and blocks submission after the session ch
 it("preserves a rejected preview with useful recovery actions", async () => {
   vi.stubGlobal(
     "fetch",
-    vi
-      .fn()
-      .mockResolvedValue({
-        ok: false,
-        json: async () => ({
-          error: "One or more dates already have a record.",
-        }),
+    vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({
+        error: "One or more dates already have a record.",
       }),
+    }),
   );
   render(<ImportPage />);
   await upload();
@@ -137,4 +135,57 @@ it("preserves a rejected preview with useful recovery actions", async () => {
     expect(screen.getByRole("alert")).toHaveTextContent("One or more dates"),
   );
   expect(screen.getByRole("button", { name: "Add records" })).toBeEnabled();
+});
+
+it("bounds the displayed preview while submitting every validated record", async () => {
+  const rows = Array.from({ length: 51 }, (_, i) => {
+    const day = new Date("2026-01-01T12:00:00Z");
+    day.setUTCDate(i + 1);
+    return { ...row, date: day.toISOString().slice(0, 10) };
+  });
+  parse.mockImplementation((_file, options) =>
+    options.complete({ data: rows, errors: [], meta: { fields: headers } }),
+  );
+  const send = vi
+    .fn()
+    .mockResolvedValue({ ok: true, json: async () => ({ inserted: 51 }) });
+  vi.stubGlobal("fetch", send);
+  render(<ImportPage />);
+  await upload();
+  expect(screen.getAllByRole("row")).toHaveLength(51);
+  expect(screen.getByText(/Showing the first 50 of 51/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Add records" }));
+  expect(JSON.parse(send.mock.calls[0][1].body)).toHaveLength(51);
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "51 records added",
+  );
+});
+it("switches from a pending file parse to browser totals without retaining the parsing state", async () => {
+  let complete: ((value: unknown) => void) | undefined;
+  parse.mockImplementation((_file, options) => {
+    complete = options.complete;
+  });
+  localStorage.setItem(
+    "baseline.importedMetrics.v1",
+    JSON.stringify([
+      {
+        date: "2026-10-01",
+        steps: 1,
+        moveCalories: 0,
+        restMinutes: 0,
+        breatheMinutes: 0,
+      },
+    ]),
+  );
+  render(<ImportPage />);
+  await upload();
+  await userEvent.click(screen.getByText("Import earlier browser data"));
+  await userEvent.click(
+    screen.getByRole("button", { name: "Preview browser totals" }),
+  );
+  act(() => complete?.(parsed()));
+  expect(screen.queryByText("Checking the file…")).toBeNull();
+  expect(screen.getByText("2026-10-01")).toBeInTheDocument();
+  expect(screen.queryByText("2026-11-01")).toBeNull();
+  localStorage.removeItem("baseline.importedMetrics.v1");
 });

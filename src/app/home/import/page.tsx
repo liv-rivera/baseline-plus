@@ -49,6 +49,8 @@ export default function ImportDataPage() {
 
   const previewBrowserTotals = () => {
     selectionVersion.current++;
+    setParsing(false);
+    if (fileInput.current) fileInput.current.value = "";
     setErrors([]);
     setPreview([]);
     setSuccessMessage("");
@@ -104,7 +106,7 @@ export default function ImportDataPage() {
 
     if (file.size > 5 * 1024 * 1024) {
       setErrors([
-        "This file is larger than 5 MB. Split it into smaller CSV files and try again.",
+        "This file is larger than 5 MiB. Split it into smaller CSV files and try again.",
       ]);
       return;
     }
@@ -263,7 +265,7 @@ export default function ImportDataPage() {
                 ? "Loading your records…"
                 : databaseError
                   ? "Could not load your records. Reload to try again."
-                  : "CSV only, up to 5 MB"}
+                  : "CSV only, up to 5 MiB"}
             </span>
             <input
               ref={fileInput}
@@ -279,12 +281,21 @@ export default function ImportDataPage() {
 
           {parsing && <p role="status">Checking the file…</p>}
           {databaseError && (
-            <button type="button" onClick={refresh}>
+            <button
+              className={styles.templateButton}
+              type="button"
+              onClick={refresh}
+            >
               Try loading records again
             </button>
           )}
           {(selectedFile || preview.length > 0) && (
-            <button type="button" disabled={pending} onClick={clearPreview}>
+            <button
+              className={styles.templateButton}
+              type="button"
+              disabled={pending}
+              onClick={clearPreview}
+            >
               Clear preview
             </button>
           )}
@@ -336,6 +347,7 @@ export default function ImportDataPage() {
               >
                 Refresh saved records
               </button>
+              <Link href="/home/journal">Correct an existing day</Link>
               <ul>
                 {errors.map((error) => (
                   <li key={error}>{error}</li>
@@ -370,6 +382,12 @@ export default function ImportDataPage() {
                   {pending ? "Adding records…" : "Add records"}
                 </button>
               </div>
+              {preview.length > 50 && (
+                <p>
+                  Showing the first 50 of {preview.length} records. All{" "}
+                  {preview.length} records will be added.
+                </p>
+              )}
               <div className={styles.tableWrap}>
                 <table>
                   <thead>
@@ -383,7 +401,7 @@ export default function ImportDataPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {preview.map((metric) => (
+                    {preview.slice(0, 50).map((metric) => (
                       <tr key={metric.date}>
                         <td>{metric.date}</td>
                         <td>{metric.steps.toLocaleString("en-US")}</td>

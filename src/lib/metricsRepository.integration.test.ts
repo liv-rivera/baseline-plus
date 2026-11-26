@@ -700,7 +700,21 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
         }),
       );
       async function login() {
-        const response = await postAuth("sign-in/email", { email, password });
+        let response = await postAuth("sign-in/email", { email, password });
+        for (
+          let attempt = 0;
+          response.status === 429 && attempt < 3;
+          attempt++
+        ) {
+          const seconds = Math.min(
+            60,
+            Number(response.headers.get("retry-after")) || 10,
+          );
+          await new Promise((resolve) =>
+            setTimeout(resolve, (seconds + 1) * 1000),
+          );
+          response = await postAuth("sign-in/email", { email, password });
+        }
         expect(response.status).toBe(200);
         return response.headers
           .getSetCookie()
@@ -738,7 +752,7 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
       expect((await postAuth("sign-out", {}, cookie)).status).toBe(200);
       expect((await GET(request())).status).toBe(401);
     }
-  });
+  }, 120_000);
 
   it("returns zeroed averages for a user with no records", async () => {
     const { readMetricAverages } = await import("@/lib/metricsRepository");
