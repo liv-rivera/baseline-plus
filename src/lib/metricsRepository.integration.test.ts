@@ -23,6 +23,7 @@ const migrationFiles = [
   "004_auth.sql",
   "005_optional_readiness.sql",
   "006_check_ins.sql",
+  "007_check_in_fields.sql",
 ];
 
 const makeMetric = (
@@ -762,6 +763,145 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
       moveCalories: 0,
       restMinutes: 0,
       breatheMinutes: 0,
+    });
+  });
+  describe("configurable check-ins (007)", () => {
+    const day = "2026-11-20";
+
+    it("gives every account Energy, Soreness and Notes with 1-5 descriptions", async () => {
+      const { listCheckInFields } = await import("./checkIns");
+      const fields = await listCheckInFields(userId);
+      expect(fields.map((f) => [f.label, f.kind, f.systemKey])).toEqual([
+        ["Energy", "score", "energy"],
+        ["Soreness", "score", "soreness"],
+        ["Notes", "notes", "notes"],
+      ]);
+      expect(fields[0].scoreLabels).toHaveLength(5);
+      expect(fields[0].promptMetrics).toEqual(["hrv", "resting_heart_rate", "sleep_duration"]);
+    });
+
+    it("backfilled existing seed check-ins into answers", async () => {
+      const { rows } = await pool.query(
+        `SELECT count(*)::int AS missing FROM daily_check_ins c
+         WHERE c.energy IS NOT NULL AND NOT EXISTS (
+           SELECT 1 FROM check_in_answers a JOIN check_in_fields f ON f.id = a.field_id
+           WHERE a.user_id = c.user_id AND a.local_date = c.local_date AND f.system_key = 'energy' AND a.score = c.energy)`,
+      );
+      expect(rows[0].missing).toBe(0);
+    });
+
+    it("saves, edits, partly clears and isolates answers, keeping legacy columns in step", async () => {
+      const { addCheckInField, listCheckInFields, readCheckIn, saveCheckIn } = await import("./checkIns");
+      const dizziness = await addCheckInField(userId, { label: "Dizziness", kind: "score" });
+      const fluids = await addCheckInField(userId, { label: "Fluids", kind: "number", unit: "L" });
+      const flare = await addCheckInField(userId, { label: "Flare today", kind: "yes_no" });
+      if (!dizziness.ok || !fluids.ok || !flare.ok) throw new Error("field setup failed");
+      const fields = await listCheckInFields(userId);
+      const energy = fields.find((f) => f.systemKey === "energy")!;
+      const notes = fields.find((f) => f.systemKey === "notes")!;
+
+      expect(await saveCheckIn(userId, day, {})).toMatchObject({ ok: false });
+      expect(await saveCheckIn(userId, day, { [energy.id]: "7" })).toMatchObject({ ok: false, message: /1 to 5/ });
+      const first = await saveCheckIn(userId, day, {
+        [energy.id]: "2",
+        [dizziness.field.id]: "4",
+        [fluids.field.id]: "2.5",
+        [flare.field.id]: "no",
+        [notes.id]: { tags: ["heat", "heat", " travel "], note: "Long day" },
+      });
+      if (!first.ok) throw new Error(first.message);
+      const saved = await readCheckIn(userId, day);
+      expect(saved?.answers[dizziness.field.id]).toEqual({ kind: "score", score: 4 });
+      expect(saved?.answers[fluids.field.id]).toEqual({ kind: "number", number: 2.5 });
+      expect(saved?.answers[flare.field.id]).toEqual({ kind: "yes_no", yesNo: false });
+      expect(saved?.answers[notes.id]).toEqual({ kind: "notes", tags: ["heat", "travel"], note: "Long day" });
+      const legacy = await pool.query(
+        "SELECT energy, soreness, note FROM daily_check_ins WHERE user_id=$1 AND local_date=$2",
+        [userId, day],
+      );
+      expect(legacy.rows[0]).toEqual({ energy: 2, soreness: null, note: "Long day" });
+
+      // A second tab with a new check-in, or a stale revision, is refused.
+      expect(await saveCheckIn(userId, day, { [energy.id]: "3" })).toMatchObject({ ok: false, message: /Reload/ });
+      expect(await saveCheckIn(userId, day, { [energy.id]: "3" }, "2000-01-01")).toMatchObject({ ok: false });
+      // Another account cannot write to these fields.
+      expect(await saveCheckIn(legacyUser, day, { [energy.id]: "3" })).toMatchObject({ ok: false });
+      expect(await readCheckIn(legacyUser, day)).toBeNull();
+
+      // Clearing one field leaves the rest; omitted fields are untouched.
+      const second = await saveCheckIn(userId, day, { [energy.id]: "", [fluids.field.id]: "3" }, first.revision);
+      if (!second.ok) throw new Error(second.message);
+      const edited = await readCheckIn(userId, day);
+      expect(edited?.answers[energy.id]).toBeUndefined();
+      expect(edited?.answers[fluids.field.id]).toEqual({ kind: "number", number: 3 });
+      expect(edited?.answers[dizziness.field.id]).toEqual({ kind: "score", score: 4 });
+    });
+
+    it("mirrors the old journal form into answers", async () => {
+      const { changeDay } = await import("./journal");
+      const { readCheckIn, listCheckInFields } = await import("./checkIns");
+      const form = new FormData();
+      for (const [k, v] of Object.entries({ date: day, action: "context", energy: "4", soreness: "1", note: "Easy spin" }))
+        form.set(k, v);
+      expect(await changeDay(userId, form)).toBe("Saved.");
+      const [energy, soreness, notes] = await listCheckInFields(userId);
+      const saved = await readCheckIn(userId, day);
+      expect(saved?.answers[energy.id]).toEqual({ kind: "score", score: 4 });
+      expect(saved?.answers[soreness.id]).toEqual({ kind: "score", score: 1 });
+      expect(saved?.answers[notes.id]).toEqual({ kind: "notes", tags: [], note: "Easy spin" });
+    });
+
+    it("retires, restores, renames and deletes fields without touching other days", async () => {
+      const {
+        addCheckInField, clearCheckIn, countFieldAnswers, deleteCheckInField, listCheckInFields,
+        readCheckIn, reorderCheckInFields, saveCheckIn, setCheckInFieldRetired, updateCheckInField,
+      } = await import("./checkIns");
+      const pain = await addCheckInField(userId, { label: "Pain", kind: "score" });
+      if (!pain.ok) throw new Error(pain.message);
+      expect(await addCheckInField(userId, { label: "pain", kind: "score" })).toMatchObject({ ok: false });
+      expect(await addCheckInField(userId, { label: "Salt", kind: "yes_no", unit: "g" })).toMatchObject({ ok: false });
+      const [energy] = await listCheckInFields(userId);
+      const saved = await saveCheckIn(userId, day, { [pain.field.id]: "3" });
+      if (!saved.ok) throw new Error(saved.message);
+      await saveCheckIn(userId, "2026-11-21", { [pain.field.id]: "2", [energy.id]: "3" });
+
+      expect(await setCheckInFieldRetired(userId, pain.field.id, true)).toMatchObject({ ok: true });
+      expect((await listCheckInFields(userId)).some((f) => f.id === pain.field.id)).toBe(false);
+      expect((await readCheckIn(userId, day))?.answers[pain.field.id]).toEqual({ kind: "score", score: 3 });
+      expect(await setCheckInFieldRetired(userId, pain.field.id, false)).toMatchObject({ ok: true });
+      expect(await updateCheckInField(userId, pain.field.id, { label: "Joint pain" })).toMatchObject({
+        ok: true, field: { label: "Joint pain", kind: "score" },
+      });
+      const active = await listCheckInFields(userId);
+      expect(await reorderCheckInFields(userId, active.map((f) => f.id).reverse())).toBe(true);
+      expect((await listCheckInFields(userId))[0].label).toBe("Notes");
+      expect(await reorderCheckInFields(userId, [active[0].id])).toBe(false);
+
+      expect(await countFieldAnswers(userId, pain.field.id)).toBe(2);
+      expect(await deleteCheckInField(userId, energy.id)).toBe(false);
+      expect(await deleteCheckInField(legacyUser, pain.field.id)).toBe(false);
+      expect(await deleteCheckInField(userId, pain.field.id)).toBe(true);
+      // The day that only had Pain is gone; the other keeps Energy.
+      expect(await readCheckIn(userId, day)).toBeNull();
+      const other = await readCheckIn(userId, "2026-11-21");
+      expect(other?.answers[energy.id]).toEqual({ kind: "score", score: 3 });
+      expect(await clearCheckIn(userId, "2026-11-21", other!.revision)).toBe(true);
+      const { rows } = await pool.query("SELECT count(*)::int AS n FROM check_in_answers WHERE user_id=$1", [userId]);
+      expect(rows[0].n).toBe(0);
+    });
+
+    it("defaults the check-in time to evening and removes everything with the account", async () => {
+      const { getCheckInTime, setCheckInTime, saveCheckIn, listCheckInFields } = await import("./checkIns");
+      expect(await getCheckInTime(userId)).toBe("evening");
+      await setCheckInTime(userId, "morning");
+      expect(await getCheckInTime(userId)).toBe("morning");
+      const [energy] = await listCheckInFields(userId);
+      await saveCheckIn(userId, day, { [energy.id]: "3" });
+      await pool.query("DELETE FROM users WHERE id=$1", [userId]);
+      for (const table of ["check_in_fields", "check_in_answers", "check_in_settings"]) {
+        const { rows } = await pool.query(`SELECT count(*)::int AS n FROM ${table} WHERE user_id=$1`, [userId]);
+        expect(rows[0].n).toBe(0);
+      }
     });
   });
 });

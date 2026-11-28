@@ -82,7 +82,7 @@ npm run test:coverage
 npm run build
 ```
 
-Run `npm run test:integration` with `DATABASE_URL` set to a fresh, empty disposable PostgreSQL database. The suite applies migrations 001–006 and exercises per-account reads and atomic writes.
+Run `npm run test:integration` with `DATABASE_URL` set to a fresh, empty disposable PostgreSQL database. The suite applies migrations 001–007 and exercises per-account reads and atomic writes.
 
 For the browser rehearsal, use a separate freshly migrated disposable database, a local Mailpit instance, `BASELINE_MAIL_TRANSPORT=mailpit`, and a fresh `qa-<uuid>@example.test` as `BASELINE_OWNER_EMAIL`. Set both app URLs to `http://localhost:3300`. Start the app with `npm run dev -- -H 127.0.0.1 -p 3300`. Export the same fixture owner and transport in the test shell. Run `npx playwright install chromium` once, then `npm run test:e2e` (or set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to a local Chromium). It exercises verification, import, reset-link reuse, credential change and session invalidation. To run the equivalent HTTP lifecycle checks against a separate fresh fixture, set `BASELINE_API_ONLY=1` in the test shell. The database and inbox should contain synthetic records only.
 
