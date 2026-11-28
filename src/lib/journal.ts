@@ -12,10 +12,10 @@ export function validDay(day: string) {
 export async function readDay(owner: string, day: string) {
   const db = getDatabasePool();
   const metrics = await db.query<{
-    steps: number;
-    calories: number;
-    rest: number;
-    breathe: number;
+    steps: number | null;
+    calories: number | null;
+    rest: number | null;
+    breathe: number | null;
     source: string;
     manually_corrected: boolean;
     revision: string;
@@ -82,15 +82,18 @@ export async function changeDay(owner: string, form: FormData) {
         ).rowCount;
   } else if (action === "metric") {
     const amounts = ["steps", "calories", "rest", "breathe"].map((key) =>
-      String(form.get(key) ?? ""),
+      String(form.get(key) ?? "").trim(),
     );
     if (
       amounts.some(
-        (v, i) => !/^\d+$/.test(v) || Number(v) > (i < 2 ? 2147483647 : 1440),
+        (v, i) => v !== "" && (!/^\d+$/.test(v) || Number(v) > (i < 2 ? 2147483647 : 1440)),
       )
     )
       return "Enter whole daily totals. Minutes must be 0–1440.";
-    const values = [owner, day, ...amounts];
+    // A blank total means nothing was recorded, but a day needs at least one.
+    if (amounts.every((v) => v === ""))
+      return "Enter at least one daily total.";
+    const values = [owner, day, ...amounts.map((v) => (v === "" ? null : v))];
     changed = revision
       ? (
           await db.query(

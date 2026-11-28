@@ -34,6 +34,6 @@ describe("sample data", () => {
 
   it("averages whole-history values like the metrics API", () => {
     const avg = averageMetrics(rows);
-    expect(avg.steps).toBe(Math.floor(rows.reduce((sum, r) => sum + r.steps, 0) / rows.length));
+    expect(avg.steps).toBe(Math.floor(rows.reduce((sum, r) => sum + (r.steps ?? 0), 0) / rows.length));
   });
 });

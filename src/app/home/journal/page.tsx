@@ -29,7 +29,7 @@ export default async function Journal({
           <h2>Daily totals</h2>
           {metric && (
             <p>
-              Original source: {metric.source}
+              Original source: {metric.source === "apple_health" ? "Apple Health" : metric.source}
               {metric.manually_corrected && " · Manually corrected"}
             </p>
           )}
@@ -63,8 +63,7 @@ export default async function Journal({
                     max={
                       key === "rest" || key === "breathe" ? 1440 : 2147483647
                     }
-                    required
-                    defaultValue={metric?.[key]}
+                    defaultValue={metric?.[key] ?? ""}
                   />
                 </label>
               ))}

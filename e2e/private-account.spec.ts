@@ -63,8 +63,8 @@ test("a private owner verifies, imports a summary and recovers access on mobile"
   ).toBeVisible();
   const intakeStarted = performance.now();
   await page.getByRole("link", { name: "Import data" }).click();
-  await expect(page.locator('input[type="file"]')).toBeEnabled();
-  await page.locator('input[type="file"]').setInputFiles({
+  await expect(page.getByLabel("CSV file", { exact: true })).toBeEnabled();
+  await page.getByLabel("CSV file", { exact: true }).setInputFiles({
     name: "sample.csv",
     mimeType: "text/csv",
     buffer: Buffer.from(
@@ -83,9 +83,9 @@ test("a private owner verifies, imports a summary and recovers access on mobile"
     `Synthetic CSV intake completed in ${((performance.now() - intakeStarted) / 1000).toFixed(1)} seconds.`,
   );
   await page.getByRole("link", { name: "Import data" }).click();
-  await expect(page.getByLabel("CSV file")).toBeEnabled();
+  await expect(page.getByLabel("CSV file", { exact: true })).toBeEnabled();
   await page
-    .getByLabel("CSV file")
+    .getByLabel("CSV file", { exact: true })
     .setInputFiles({
       name: "repeat.csv",
       mimeType: "text/csv",
@@ -100,7 +100,7 @@ test("a private owner verifies, imports a summary and recovers access on mobile"
     0,
   );
   await page
-    .getByLabel("CSV file")
+    .getByLabel("CSV file", { exact: true })
     .setInputFiles({
       name: "malformed.csv",
       mimeType: "text/csv",
