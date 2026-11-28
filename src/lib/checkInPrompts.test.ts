@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   BANNED_PROMPT_WORDS,
   buildPrompts,
+  formatMetricValue,
+  isPromptDate,
   leadSentence,
   linkedFields,
   metricChange,
@@ -141,5 +143,23 @@ describe("prompts for a check-in", () => {
     expect(buildPrompts(DATE, { hrv: series([45, 50, 55], 10, 10) }, [energy])).toEqual([]);
     expect(buildPrompts(DATE, { hrv: series([45, 50, 55], 10) }, [dizziness])).toEqual([]);
     expect(buildPrompts(DATE, {}, [energy])).toEqual([]);
+  });
+});
+
+describe("when prompts apply", () => {
+  it("only asks about today or yesterday, allowing for time zones", () => {
+    const now = new Date("2026-11-28T03:00:00Z"); // still 27 Nov in Hawaii
+    expect(isPromptDate("2026-11-28", now)).toBe(true);
+    expect(isPromptDate("2026-11-27", now)).toBe(true);
+    expect(isPromptDate("2026-11-26", now)).toBe(true);
+    expect(isPromptDate("2026-11-29", now)).toBe(true);
+    expect(isPromptDate("2026-11-25", now)).toBe(false);
+    expect(isPromptDate("2026-11-30", now)).toBe(false);
+  });
+
+  it("formats values with their units", () => {
+    expect(formatMetricValue("hrv", 41.6)).toBe("42 ms");
+    expect(formatMetricValue("resting_heart_rate", 57.2)).toBe("57 bpm");
+    expect(formatMetricValue("sleep_duration", 425)).toBe("7 h 5 min");
   });
 });
