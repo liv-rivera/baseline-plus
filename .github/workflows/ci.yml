@@ -97,3 +97,48 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+
+  private-rehearsal:
+    name: Private account rehearsal
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      BASELINE_REHEARSAL: synthetic
+      BASELINE_QA_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Use PostgreSQL 16 backup utilities
+        run: |
+          if [ ! -x /usr/lib/postgresql/16/bin/pg_dump ]; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client-16
+          fi
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
+      - run: npx playwright install --with-deps chromium
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+      - run: go install github.com/axllent/mailpit@v1.34.0
+      - name: Rehearse accounts, records and restore
+        run: |
+          "$(go env GOPATH)/bin/mailpit" --listen 127.0.0.1:8025 --smtp 127.0.0.1:1025 >/tmp/mailpit.log 2>&1 &
+          npm run test:private-rehearsal

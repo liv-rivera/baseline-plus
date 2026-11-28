@@ -25,6 +25,7 @@ export default async function Settings({
         </p>
       )}
       <SignInMethods
+        email={session.user.email}
         googleId={accounts.find((a) => a.providerId === "google")?.id}
         enabled={Boolean(
           process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
