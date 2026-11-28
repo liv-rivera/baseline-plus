@@ -149,3 +149,61 @@
 .confirm {
   color: var(--ink);
 }
+
+/* Metric questions (T266): quiet, clearly a question, never a warning colour. */
+.prompt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  margin-bottom: -4px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.prompt > p {
+  margin: 0;
+}
+
+.promptActions {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.form .link,
+.form .dismiss {
+  min-height: 28px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.form .dismiss {
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.why {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.why p {
+  margin: 0;
+}
+
+.why svg {
+  max-width: 100%;
+  height: auto;
+}

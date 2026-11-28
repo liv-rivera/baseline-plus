@@ -20,6 +20,18 @@ Press **Save check-in**. You can come back and change it any time, and the butto
 
 If you have the journal open in two tabs, Baseline+ won't let an older tab overwrite something you saved in the newer one. Reload and try again.
 
+## Questions from your metrics
+
+When you check in on today or yesterday, a short question can appear above a field if your HRV, resting heart rate or last night's sleep was outside your usual range, higher or lower. For example: "HRV is lower than usual (38 ms, usual 45 to 62). Is your energy lower than usual today?"
+
+- Your usual range is the middle 80% of your own readings from the 28 days before, and it needs at least 14 of them. With less history, or no reading for the day itself, there's no question.
+- You'll see two at most, the biggest change first.
+- **Why?** shows the day's value, your range and the last few weeks as a small chart.
+- The question goes away once you answer the field, or tap × to dismiss it for that day.
+- It's only ever a question. It never fills anything in or tells you what to do.
+
+HRV and resting heart rate come from your Apple Health import. Sleep comes from Apple Health sleep tracking, not from rest minutes you typed in.
+
 ## Setting it up for you
 
 Go to **Settings > Daily check-in**.
