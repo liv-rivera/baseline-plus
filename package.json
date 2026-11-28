@@ -20,6 +20,7 @@
     "db:migrate:auth": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/004_auth.sql",
     "auth:bootstrap-demo": "node --env-file=.env.local scripts/bootstrap-demo-account.mjs",
     "db:seed": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/seed.sql",
+    "db:seed:generate": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/generate-demo-seed.ts",
     "db:migrate:optional-readiness": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/005_optional_readiness.sql",
     "test:e2e": "playwright test",
     "db:migrate:journal": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/006_check_ins.sql",

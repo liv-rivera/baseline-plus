@@ -28,8 +28,9 @@ export async function exerciseJournal(page: Page, origin: string) {
         ).metrics.find((m: { date: string }) => m.date === date)?.steps,
     )
     .toBe(2345);
-  await page.getByRole("link", { name: "Back to dashboard" }).click();
-  await expect(page.getByText(/Energy 4 · Soreness skipped/)).toBeVisible();
-  await page.getByRole("link", { name: "Open this day" }).click();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Dashboard" }).click();
+  await expect(page.getByRole("img", { name: "Energy 4 of 5" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Soreness skipped" })).toBeVisible();
+  await page.getByRole("link", { name: "Edit check-in" }).click();
   await expect(page.getByLabel("Steps", { exact: true })).toHaveValue("2345");
 }

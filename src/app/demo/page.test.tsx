@@ -1,16 +1,20 @@
-import { render, screen, fireEvent } from "@testing-library/react";
-import { expect, it } from "vitest";
-import Demo from "./page";
+import { render, screen } from "@testing-library/react";
+import { expect, it, vi } from "vitest";
 
-it("explores fixture comparisons without navigating into an account journal", () => {
+vi.mock("next/navigation", () => ({ usePathname: () => "/demo", useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+
+const { default: Demo } = await import("./page");
+
+it("renders the real dashboard with sample data and no account links", () => {
   render(<Demo />);
-  fireEvent.change(screen.getByLabelText("Prior window"), {
-    target: { value: "28" },
-  });
-  fireEvent.change(screen.getByLabelText("Metric"), {
-    target: { value: "breatheMinutes" },
-  });
-  expect(screen.getByText(/27 observed days/)).toBeInTheDocument();
-  expect(screen.getByText(/Prior median:/)).toBeInTheDocument();
-  expect(screen.getAllByRole("link", { hidden: true })).toHaveLength(1);
+  expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: /Training minutes by sport and readiness/ })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Recent" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Comparisons" })).toBeInTheDocument();
+  expect(screen.getByText("Sample data · read-only")).toBeInTheDocument();
+
+  expect(screen.queryByRole("heading", { name: "Personal comparisons" })).toBeNull();
+
+  const hrefs = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+  expect(hrefs.every((href) => !href?.startsWith("/home"))).toBe(true);
 });

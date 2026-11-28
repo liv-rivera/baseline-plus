@@ -21,8 +21,7 @@ export default async function Journal({
   const recent = await recentCheckIns(session.user.id);
   const props = { date, owner: session.user.id };
   return (
-    <main className={styles.page}>
-      <Link href="/home">Back to dashboard</Link>
+    <div className={styles.page}>
       <h1>Daily journal</h1>
       <DayPicker date={selected ? date : ""} />
       {selected && (
@@ -132,6 +131,6 @@ export default async function Journal({
           Export my records (JSON)
         </a>
       </p>
-    </main>
+    </div>
   );
 }
