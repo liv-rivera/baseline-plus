@@ -12,6 +12,7 @@ import {
   validateAndParseCsvRows,
   validateCsvHeaders,
 } from "@/lib/csvImportValidation";
+import { AppleHealthImport } from "./AppleHealthImport";
 import styles from "./page.module.css";
 
 const downloadTemplate = () => {
@@ -233,9 +234,17 @@ export default function ImportDataPage() {
           <p className={styles.eyebrow}>DATA MANAGEMENT</p>
           <h1>Import data</h1>
           <p className={styles.description}>
-            Add daily metric records to your existing Baseline data.
+            Bring your data into Baseline. Start with Apple Health, or use a CSV for anything else.
           </p>
         </header>
+
+        <AppleHealthImport
+          ownerId={session?.user.id}
+          ownerEmail={session?.user.email}
+          savedDates={new Set(existingMetrics.map((metric) => metric.date))}
+          disabled={!session || loading || Boolean(databaseError)}
+          onImported={refresh}
+        />
 
         <section
           aria-busy={pending || parsing}
@@ -244,8 +253,8 @@ export default function ImportDataPage() {
         >
           <div className={styles.panelHeading}>
             <div>
-              <p className={styles.eyebrow}>CSV FILE</p>
-              <h2 id="upload-title">Choose a data file</h2>
+              <p className={styles.eyebrow}>OTHER SOURCES</p>
+              <h2 id="upload-title">Import a CSV file</h2>
             </div>
             <button
               className={styles.templateButton}
@@ -404,7 +413,7 @@ export default function ImportDataPage() {
                     {preview.slice(0, 50).map((metric) => (
                       <tr key={metric.date}>
                         <td>{metric.date}</td>
-                        <td>{metric.steps.toLocaleString("en-US")}</td>
+                        <td>{metric.steps?.toLocaleString("en-US")}</td>
                         <td>{metric.moveCalories}</td>
                         <td>{metric.restMinutes}</td>
                         <td>{metric.breatheMinutes}</td>

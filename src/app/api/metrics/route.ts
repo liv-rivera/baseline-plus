@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { DatabaseConfigurationError } from "@/lib/database";
 import { getRequestSession } from "@/lib/auth-session";
-import { DuplicateMetricDateError, insertDailyMetrics, readDailyMetrics, readMetricAverages } from "@/lib/metricsRepository";
+import { DuplicateMetricDateError, insertDailyMetrics, insertNewDailyMetrics, readDailyMetrics, readMetricAverages } from "@/lib/metricsRepository";
 import type { DailyMetrics } from "@/types/metrics";
 
 export const runtime = "nodejs";
@@ -77,11 +77,21 @@ const parseMetricBatch = (payload: unknown): DailyMetrics[] => {
     }
     dates.add(date);
 
+    if (item.source !== undefined && item.source !== "import" && item.source !== "apple_health") {
+      throw new MetricsPayloadError("source must be import or apple_health.");
+    }
+    const source = item.source === "apple_health" ? "apple_health" : "import";
+
+    // Apple Health days can be missing a total (no sleep data, say). CSV rows can't.
     const metricFields = ["steps", "moveCalories", "restMinutes", "breatheMinutes"] as const;
     for (const field of metricFields) {
+      if (source === "apple_health" && item[field] === null) continue;
       if (!isNonNegativeInteger(item[field])) {
         throw new MetricsPayloadError(`${field} must be a non-negative whole number.`);
       }
+    }
+    if (metricFields.every((field) => item[field] === null)) {
+      throw new MetricsPayloadError(`${date} needs at least one daily total.`);
     }
     if (Number(item.restMinutes) > 1440 || Number(item.breatheMinutes) > 1440) {
       throw new MetricsPayloadError("Daily minutes must be between 0 and 1440.");
@@ -116,11 +126,11 @@ const parseMetricBatch = (payload: unknown): DailyMetrics[] => {
 
     return {
       date,
-      source: "import",
-      steps: item.steps as number,
-      moveCalories: item.moveCalories as number,
-      restMinutes: item.restMinutes as number,
-      breatheMinutes: item.breatheMinutes as number,
+      source,
+      steps: item.steps as number | null,
+      moveCalories: item.moveCalories as number | null,
+      restMinutes: item.restMinutes as number | null,
+      breatheMinutes: item.breatheMinutes as number | null,
       readinessScore: score,
       activities,
       stepActivities,
@@ -205,6 +215,12 @@ export async function POST(request: Request) {
   }
 
   try {
+    // ?existing=skip keeps days already saved and reports them, instead of
+    // rejecting the whole import.
+    if (new URL(request.url).searchParams.get("existing") === "skip") {
+      const { inserted, skippedDates } = await insertNewDailyMetrics(session.user.id, metrics);
+      return NextResponse.json({ inserted, skipped: skippedDates }, { status: 201 });
+    }
     const inserted = await insertDailyMetrics(session.user.id, metrics);
     return NextResponse.json({ inserted }, { status: 201 });
   } catch (error) {
