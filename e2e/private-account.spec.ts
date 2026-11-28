@@ -63,8 +63,8 @@ test("a private owner verifies, imports a summary and recovers access on mobile"
   ).toBeVisible();
   const intakeStarted = performance.now();
   await page.getByRole("link", { name: "Import data" }).click();
-  await expect(page.locator('input[type="file"]')).toBeEnabled();
-  await page.locator('input[type="file"]').setInputFiles({
+  await expect(page.getByLabel("CSV file")).toBeEnabled();
+  await page.getByLabel("CSV file").setInputFiles({
     name: "sample.csv",
     mimeType: "text/csv",
     buffer: Buffer.from(
