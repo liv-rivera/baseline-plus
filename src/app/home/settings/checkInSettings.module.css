@@ -128,3 +128,24 @@
 .section p.problem {
   color: var(--warn);
 }
+
+.section .preset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+}
+
+.section .preset div {
+  flex: 1 1 280px;
+}
+
+.section .preset p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
