@@ -127,6 +127,34 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
     expect(await readDailyMetrics(otherUser)).toHaveLength(1);
   });
 
+  it("saves Apple Health heart readings by day and replaces them on a new import", async () => {
+    const { saveVitals } = await import("./vitalsRepository");
+    const read = (owner: string) =>
+      pool.query(
+        `SELECT local_date::text AS date, metric_key, value::float AS value, unit FROM daily_metric_aggregates
+          WHERE user_id=$1 ORDER BY local_date, metric_key`,
+        [owner],
+      );
+    expect(await saveVitals(userId, [])).toEqual({ saved: 0 });
+    expect(
+      await saveVitals(userId, [
+        { date: "2026-11-01", hrv: 44.5, restingHeartRate: 58 },
+        { date: "2026-11-02", hrv: null, restingHeartRate: 60 },
+        { date: "2026-11-03", hrv: null, restingHeartRate: null },
+      ]),
+    ).toEqual({ saved: 2 });
+    await saveVitals(userId, [{ date: "2026-11-01", hrv: 47, restingHeartRate: null }]);
+    expect((await read(userId)).rows).toEqual([
+      { date: "2026-11-01", metric_key: "hrv_sdnn", value: 47, unit: "ms" },
+      { date: "2026-11-01", metric_key: "resting_heart_rate", value: 58, unit: "bpm" },
+      { date: "2026-11-02", metric_key: "resting_heart_rate", value: 60, unit: "bpm" },
+    ]);
+    expect((await read(legacyUser)).rows).toEqual([]);
+    const { deleteAllRecords } = await import("./deleteAllData");
+    await deleteAllRecords(userId);
+    expect((await read(userId)).rows).toEqual([]);
+  });
+
   it("keeps check-ins independent and rejects stale, conflicting and unconfirmed changes", async () => {
     const { changeDay, readDay } = await import("./journal");
     const date = "2026-11-02";
@@ -419,6 +447,8 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
     expect((await GET(new Request(origin + "/api/export"))).status).toBe(401);
     const { insertDailyMetrics } = await import("./metricsRepository");
     await insertDailyMetrics(userId, [makeMetric(date)]);
+    const { saveVitals } = await import("./vitalsRepository");
+    await saveVitals(userId, [{ date, hrv: 42, restingHeartRate: null }]);
     const response = await GET(request);
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(await response.json()).toMatchObject({
@@ -434,6 +464,7 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
         },
       ],
       check_ins: [{ date, note: "Owned fixture" }],
+      daily_readings: [expect.objectContaining({ date, metric: "hrv_sdnn", value: 42, unit: "ms" })],
     });
     expect(
       (await call("unlink-account", { accountId: "other" }, { cookie })).status,
@@ -1002,6 +1033,58 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
         hrv: [{ date: day, value: 39 }],
         resting_heart_rate: [{ date: "2026-11-19", value: 58 }],
         sleep_duration: [{ date: day, value: 410 }],
+      });
+    });
+
+    it("adds the POTS starter set once, skipping fields the owner already has", async () => {
+      const { addCheckInField, applyCheckInPreset, listCheckInFields, setCheckInFieldRetired } = await import("./checkIns");
+      expect(await applyCheckInPreset(userId, "nope")).toMatchObject({ ok: false });
+      // The owner already tracks dizziness, and once tracked fluids but hid the field.
+      const dizziness = await addCheckInField(userId, { label: "dizziness", kind: "score" });
+      const fluids = await addCheckInField(userId, { label: "Fluids", kind: "number", unit: "ml" });
+      if (!dizziness.ok || !fluids.ok) throw new Error("field setup failed");
+      await setCheckInFieldRetired(userId, fluids.field.id, true);
+
+      expect(await applyCheckInPreset(userId, "pots")).toEqual({
+        ok: true,
+        added: ["Brain fog", "Flare today", "Salt", "Compression worn", "Meds taken"],
+        restored: ["Fluids"],
+        skipped: ["Dizziness"],
+      });
+      const fields = await listCheckInFields(userId, { includeRetired: true });
+      expect(fields.filter((f) => f.label.toLowerCase() === "dizziness")).toHaveLength(1);
+      // The restored field keeps the owner's own unit and history.
+      expect(fields.filter((f) => f.label === "Fluids")).toEqual([
+        expect.objectContaining({ id: fluids.field.id, unit: "ml", retired: false }),
+      ]);
+      expect(fields.find((f) => f.label === "Salt")).toMatchObject({ kind: "number", unit: "g", preset: "pots" });
+      const brainFog = fields.find((f) => f.label === "Brain fog")!;
+      expect(brainFog).toMatchObject({ kind: "score", promptMetrics: ["sleep_duration"] });
+      expect(brainFog.scoreLabels).toHaveLength(5);
+      expect(fields.at(-1)?.systemKey).toBe("notes");
+
+      // Running it again changes nothing.
+      expect(await applyCheckInPreset(userId, "pots")).toMatchObject({ ok: true, added: [], restored: [] });
+      expect(await listCheckInFields(userId, { includeRetired: true })).toHaveLength(fields.length);
+
+      // Another account is unaffected.
+      expect((await listCheckInFields(legacyUser)).map((f) => f.label)).not.toContain("Salt");
+    });
+
+    it("lets only one of two first saves for the same day win", async () => {
+      const { listCheckInFields, readCheckIn, saveCheckIn } = await import("./checkIns");
+      const energy = (await listCheckInFields(userId)).find((f) => f.systemKey === "energy")!;
+      const race = "2026-11-23";
+      const results = await Promise.all([
+        saveCheckIn(userId, race, { [energy.id]: "2" }),
+        saveCheckIn(userId, race, { [energy.id]: "5" }),
+      ]);
+      expect(results.filter((r) => r.ok)).toHaveLength(1);
+      expect(results.find((r) => !r.ok)).toMatchObject({ message: /Reload/ });
+      const winner = results.findIndex((r) => r.ok);
+      expect((await readCheckIn(userId, race))?.answers[energy.id]).toEqual({
+        kind: "score",
+        score: winner === 0 ? 2 : 5,
       });
     });
 

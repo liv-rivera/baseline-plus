@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getRequestSession } from "@/lib/auth-session";
 import {
   addCheckInField,
+  applyCheckInPreset,
   countFieldAnswers,
   deleteCheckInField,
   listCheckInFields,
@@ -75,10 +76,29 @@ export async function manageCheckIn(_: ManageState, form: FormData): Promise<Man
           ? done("Field and its answers deleted.")
           : { ok: false, message: "Energy, Soreness and Notes can be hidden but not deleted." };
       }
+      case "preset": {
+        const result = await applyCheckInPreset(owner, String(form.get("preset") ?? ""));
+        if (!result.ok) return { ok: false, message: result.message };
+        return done(describePreset(result.added, result.restored, result.skipped));
+      }
       default:
         return { ok: false, message: "Unknown change." };
     }
   } catch {
     return { ok: false, message: "Could not save. Please try again." };
   }
+}
+
+function list(labels: string[]): string {
+  if (labels.length <= 1) return labels.join("");
+  return `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}`;
+}
+
+function describePreset(added: string[], restored: string[], skipped: string[]): string {
+  const parts: string[] = [];
+  if (added.length) parts.push(`Added ${list(added)}.`);
+  if (restored.length) parts.push(`Brought back ${list(restored)}.`);
+  if (!added.length && !restored.length) return "You already have every field in this set.";
+  if (skipped.length) parts.push(`You already had ${list(skipped)}.`);
+  return parts.join(" ");
 }

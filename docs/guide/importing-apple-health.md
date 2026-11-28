@@ -38,7 +38,12 @@ For each day, Baseline+ takes four totals:
 
 Each day uses the local time where you were, so trips across time zones land on the right dates.
 
-Heart rate, HRV, workouts and everything else in the export are skipped for now. Apple Health also doesn't have a readiness score, so imported days won't show one.
+It also brings in two heart readings for each day, which the check-in uses to ask whether you feel different from usual:
+
+- **HRV.** The average of the day's heart rate variability readings (SDNN, in ms) from one device, the Watch when there is one.
+- **Resting heart rate.** The day's resting heart rate in bpm, from the same kind of device.
+
+Unlike the totals, heart readings are filled in for days you already have, so importing a newer export adds them to days you imported before. Workouts and everything else in the export are skipped for now. Apple Health also doesn't have a readiness score, so imported days won't show one.
 
 ## Missing totals
 

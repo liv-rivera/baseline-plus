@@ -44,6 +44,8 @@ Go to **Settings > Daily check-in**.
 - **Yes / no** for things like "took my rescue medication" or "had a flare".
 - **Number**, with an optional unit, for things like fluids in litres or salt in grams.
 
+**POTS starter set.** If you have POTS, or something like it, the starter set adds Dizziness, Brain fog, Flare today, Fluids (L), Salt (g), Compression worn and Meds taken in one go. Anything you already track under the same name is left alone, and a field you'd hidden comes back instead of being added twice. Rename, hide or reorder them afterwards like any other field. The box disappears once you have every field in the set.
+
 Hiding a field takes it off the form but keeps everything you've already recorded. You'll find it under **Hidden fields**, where you can bring it back. You can also delete a field you added yourself, but that removes all of its answers too, so you'll be asked to confirm.
 
 ## Fixing a day's numbers
