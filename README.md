@@ -65,13 +65,18 @@ New accounts verify their email address, and password resets go out by email. Lo
 mailpit --listen 127.0.0.1:8025 --smtp 127.0.0.1:1025
 ```
 
-Set `BASELINE_MAIL_TRANSPORT=mailpit` and open `http://127.0.0.1:8025` to see the messages. Production needs `BASELINE_MAIL_TRANSPORT=resend`, a server-side `RESEND_API_KEY` and a verified `RESEND_FROM_EMAIL`. Production refuses Mailpit.
+Set `BASELINE_MAIL_TRANSPORT=mailpit` and open `http://127.0.0.1:8025` to see the messages. Production refuses Mailpit.
+
+For real email there are two options:
+
+- **Gmail (free).** Make a Gmail account just for Baseline+, turn on 2-Step Verification, and create an app password at myaccount.google.com/apppasswords. Then set `BASELINE_MAIL_TRANSPORT=gmail`, `GMAIL_USER` to the address and `GMAIL_APP_PASSWORD` to the app password. Mail goes out as "Baseline+" from that address. Gmail allows roughly 500 messages a day, which is plenty for a small beta.
+- **Resend.** Set `BASELINE_MAIL_TRANSPORT=resend`, a server-side `RESEND_API_KEY` and `RESEND_FROM_EMAIL` on a domain you've verified with Resend.
 
 ### Inviting beta users
 
 Sign-up is invite-only. Signed in as the owner, open **Settings > Beta invites** and add someone's email address. That address can then create an account, and nobody else can. You can copy a sign-up link to send yourself, which opens the create-account form with their address filled in, or have the app email it to them. Removing an invite stops a sign-up that hasn't happened yet. It doesn't touch an account that already exists, so delete that separately if you need to.
 
-One catch with email: Resend's shared test sender (`onboarding@resend.dev`) only delivers to the address on your Resend account. While `RESEND_FROM_EMAIL` uses it, invited people won't get their invite or their verification email, and the Beta invites section says so and hides the email options. Mailpit locally doesn't have this limit.
+One catch with email: Resend's shared test sender (`onboarding@resend.dev`) only delivers to the address on your Resend account. While `RESEND_FROM_EMAIL` uses it, invited people won't get their invite or their verification email, and the Beta invites section says so and hides the email options. Gmail, a verified Resend domain, or Mailpit locally don't have this limit.
 
 The sign-in page offers verification resend and password recovery. Each email endpoint allows one request per client per minute. Reset links expire after 30 minutes, and a successful reset signs out every other session. Keep auth callback URLs out of proxy and hosting logs.
 

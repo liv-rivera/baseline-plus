@@ -1,4 +1,9 @@
 import { afterEach, expect, it, vi } from "vitest";
+const { createTransport, sendMail } = vi.hoisted(() => {
+  const sendMail = vi.fn();
+  return { sendMail, createTransport: vi.fn(() => ({ sendMail })) };
+});
+vi.mock("nodemailer", () => ({ default: { createTransport } }));
 import { canEmailOthers, sendAccountEmail } from "./accountEmail";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
@@ -45,4 +50,26 @@ it("knows Resend's shared test sender can't reach invitees", () => {
   expect(canEmailOthers()).toBe(true);
   vi.stubEnv("RESEND_API_KEY", "");
   expect(canEmailOthers()).toBe(false);
+});
+
+it("sends through Gmail with an app password and can reach invitees", async () => {
+  vi.stubEnv("BASELINE_MAIL_TRANSPORT", "gmail");
+  vi.stubEnv("GMAIL_USER", "baseline.fixture@gmail.com");
+  vi.stubEnv("GMAIL_APP_PASSWORD", "abcd efgh ijkl mnop");
+  sendMail.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error("535 bad login"));
+  expect(canEmailOthers()).toBe(true);
+  await sendAccountEmail("invite", "sam@example.test", "https://baseline.example.test/?join=sam%40example.test");
+  expect(createTransport).toHaveBeenCalledWith({
+    service: "gmail",
+    auth: { user: "baseline.fixture@gmail.com", pass: "abcdefghijklmnop" },
+  });
+  expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({
+    from: { name: "Baseline+", address: "baseline.fixture@gmail.com" },
+    to: "sam@example.test",
+    subject: "You're invited to try Baseline+",
+  }));
+  await expect(sendAccountEmail("verify", "sam@example.test", "x")).rejects.toThrow("Account email delivery failed.");
+  vi.stubEnv("GMAIL_APP_PASSWORD", "");
+  expect(canEmailOthers()).toBe(false);
+  await expect(sendAccountEmail("verify", "sam@example.test", "x")).rejects.toThrow("unavailable");
 });

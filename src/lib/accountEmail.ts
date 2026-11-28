@@ -1,5 +1,6 @@
 import "server-only";
 
+import nodemailer from "nodemailer";
 import { Resend } from "resend";
 
 type Action = "verify" | "reset" | "invite";
@@ -16,6 +17,13 @@ function compose(action: Action, url: string) {
   return { subject, text: `${subject} by opening this link:\n\n${url}\n\nIf you did not request this email, you can ignore it.` };
 }
 
+function gmailCredentials() {
+  const user = process.env.GMAIL_USER?.trim();
+  // Google shows app passwords in groups of four; the spaces aren't part of it.
+  const pass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, "");
+  return user && pass ? { user, pass } : null;
+}
+
 /**
  * Whether email can reach addresses other than the owner's. Resend's shared test sender
  * (anything @resend.dev) only delivers to the Resend account's own address, so invitees
@@ -24,6 +32,7 @@ function compose(action: Action, url: string) {
 export function canEmailOthers(): boolean {
   const transport = process.env.BASELINE_MAIL_TRANSPORT ?? "resend";
   if (transport === "mailpit") return process.env.NODE_ENV !== "production";
+  if (transport === "gmail") return Boolean(gmailCredentials());
   if (transport !== "resend") return false;
   const from = process.env.RESEND_FROM_EMAIL?.trim().toLowerCase() ?? "";
   return Boolean(process.env.RESEND_API_KEY) && Boolean(from) && !/@resend\.dev>?$/.test(from);
@@ -45,6 +54,19 @@ export async function sendAccountEmail(action: Action, email: string, url: strin
       }),
     });
     if (!response.ok) throw new Error("Local account email delivery failed.");
+    return;
+  }
+
+  if (transport === "gmail") {
+    // A dedicated Gmail account sending through Gmail's own SMTP server with an app password.
+    const credentials = gmailCredentials();
+    if (!credentials) throw new Error("Account email delivery is unavailable.");
+    const mailer = nodemailer.createTransport({ service: "gmail", auth: credentials });
+    try {
+      await mailer.sendMail({ from: { name: "Baseline+", address: credentials.user }, to: email, subject, text });
+    } catch {
+      throw new Error("Account email delivery failed.");
+    }
     return;
   }
 
