@@ -20,7 +20,10 @@ const day = (date: string, overrides: Partial<AppleHealthDay> = {}): AppleHealth
   ...overrides,
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  reader.read.mockReset();
+});
 
 const setup = (savedDates: string[] = []) => {
   const onImported = vi.fn();
@@ -31,7 +34,13 @@ const setup = (savedDates: string[] = []) => {
 };
 
 const chooseFile = (user: ReturnType<typeof userEvent.setup>) =>
-  user.upload(screen.getByLabelText(/Select export.zip/), new File(["zip"], "export.zip", { type: "application/zip" }));
+  user.upload(screen.getByLabelText("Apple Health export.zip"), new File(["zip"], "export.zip", { type: "application/zip" }));
+
+const folderFile = (path: string) => {
+  const file = new File(["data"], path.split("/").pop()!);
+  Object.defineProperty(file, "webkitRelativePath", { value: path });
+  return file;
+};
 
 it("previews new days, marks blank totals and leaves saved days out", async () => {
   reader.read.mockResolvedValueOnce({
@@ -82,4 +91,31 @@ it("says so when every day is already saved", async () => {
   const { user } = setup(["2026-11-02"]);
   await chooseFile(user);
   expect(await screen.findByRole("alert")).toHaveTextContent("Every day in this export is already saved.");
+});
+
+it("reads export.xml out of the apple_health_export folder", async () => {
+  reader.read.mockResolvedValueOnce({ days: [day("2026-11-02")], recordsUsed: 3 });
+  const { user } = setup();
+  const files = [
+    folderFile("apple_health_export/export_cda.xml"),
+    folderFile("apple_health_export/workout-routes/route_1.gpx"),
+    folderFile("apple_health_export/export.xml"),
+  ];
+  await user.upload(screen.getByLabelText("Apple Health export folder"), files);
+  expect(await screen.findByText("Ready to import")).toBeInTheDocument();
+  expect(reader.read.mock.calls[0][0]).toBe(files[2]);
+  expect(screen.getByText("apple_health_export", { selector: "p" })).toBeInTheDocument();
+});
+
+it("explains when the chosen folder isn't the export", async () => {
+  const { user } = setup();
+  await user.upload(screen.getByLabelText("Apple Health export folder"), [folderFile("Photos/cat.jpg")]);
+  expect(await screen.findByRole("alert")).toHaveTextContent("doesn't have export.xml");
+  expect(reader.read).not.toHaveBeenCalled();
+});
+
+it("shows the step-by-step guide", () => {
+  setup();
+  expect(screen.getByRole("heading", { name: "Tap Export All Health Data" })).toBeInTheDocument();
+  expect(screen.getAllByRole("img")).toHaveLength(4);
 });

@@ -75,7 +75,7 @@ CSV rows store totals without creating event details. The import preview identif
 
 ## Apple Health Import
 
-The Import data page also takes the `export.zip` you get from the Health app on iPhone (profile picture, then Export All Health Data). You can choose the zip itself or the `export.xml` inside it. The file is read in the browser, a piece at a time, so a several-hundred-megabyte export is fine and the raw health data never leaves your computer. Only the daily totals are sent to the server, in batches of 1,000 days.
+The Import data page leads with Apple Health, with illustrated steps for getting the export off an iPhone (Health, profile picture, Export All Health Data, then AirDrop or Save to Files). You can drag the `apple_health_export` folder onto the page, pick it with Choose folder, or choose `export.zip` or `export.xml` directly. On an iPhone or iPad, where browsers can't pick folders, choose the zip from Files. The file is read in the browser, a piece at a time, so a several-hundred-megabyte export is fine and the raw health data never leaves your computer. Only the daily totals are sent to the server, in batches of 1,000 days.
 
 How the totals are worked out:
 

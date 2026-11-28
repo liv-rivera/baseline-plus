@@ -4,7 +4,7 @@ import path from "node:path";
 import { strToU8, zipSync } from "fflate";
 import { describe, expect, it, vi } from "vitest";
 import { collectAppleHealthXml } from "./collector";
-import { AppleHealthFileError, readAppleHealthExport } from "./readExport";
+import { AppleHealthFileError, exportFromDrop, exportFromFolderSelection, findExportXml, readAppleHealthExport } from "./readExport";
 
 const xml = readFileSync(path.join(__dirname, "..", "..", "test", "fixtures", "apple-health", "export.xml"), "utf8");
 const expected = collectAppleHealthXml(xml).days;
@@ -47,5 +47,63 @@ describe("readAppleHealthExport", () => {
     const damaged = zip.slice();
     damaged.fill(7, 60, 400);
     await expect(readAppleHealthExport(zipBlob(damaged))).rejects.toThrow(AppleHealthFileError);
+  });
+});
+
+const named = (path: string) => ({ file: new File([path], path.split("/").pop()!), path });
+
+describe("finding export.xml in a folder", () => {
+  it("takes export.xml, not export_cda.xml or anything deeper", () => {
+    const files = [
+      named("apple_health_export/export_cda.xml"),
+      named("apple_health_export/workout-routes/export.xml"),
+      named("apple_health_export/export.xml"),
+    ];
+    expect(findExportXml(files)).toBe(files[2].file);
+    expect(findExportXml([named("apple_health_export/export_cda.xml")])).toBeNull();
+  });
+
+  it("explains a folder picker choice without export.xml", () => {
+    expect(() => exportFromFolderSelection([new File(["x"], "notes.txt")])).toThrow(AppleHealthFileError);
+  });
+});
+
+describe("exportFromDrop", () => {
+  type FakeEntry = { isFile: boolean; isDirectory: boolean; name: string; fullPath: string; file?: unknown; createReader?: unknown };
+  const fileEntry = (fullPath: string): FakeEntry => {
+    const file = new File([fullPath], fullPath.split("/").pop()!);
+    return { isFile: true, isDirectory: false, name: file.name, fullPath, file: (resolve: (f: File) => void) => resolve(file) };
+  };
+  const folderEntry = (fullPath: string, children: FakeEntry[]): FakeEntry => ({
+    isFile: false,
+    isDirectory: true,
+    name: fullPath.split("/").pop()!,
+    fullPath,
+    createReader: () => {
+      let done = false;
+      return { readEntries: (resolve: (entries: FakeEntry[]) => void) => { resolve(done ? [] : children); done = true; } };
+    },
+  });
+  const drop = (entries: FakeEntry[], files: File[] = []) =>
+    ({ items: entries.map((entry) => ({ kind: "file", webkitGetAsEntry: () => entry })), files }) as unknown as DataTransfer;
+
+  it("finds export.xml in a dropped apple_health_export folder", async () => {
+    const folder = folderEntry("/apple_health_export", [
+      fileEntry("/apple_health_export/export_cda.xml"),
+      folderEntry("/apple_health_export/electrocardiograms", [fileEntry("/apple_health_export/electrocardiograms/ecg.csv")]),
+      fileEntry("/apple_health_export/export.xml"),
+    ]);
+    const file = await exportFromDrop(drop([folder]));
+    expect(file.name).toBe("export.xml");
+    expect(await file.text()).toBe("/apple_health_export/export.xml");
+  });
+
+  it("uses a dropped zip or xml file as it is", async () => {
+    const zip = new File(["zip"], "export.zip");
+    expect(await exportFromDrop(drop([fileEntry("/export.zip")], [zip]))).toBe(zip);
+  });
+
+  it("explains a dropped folder without the export", async () => {
+    await expect(exportFromDrop(drop([folderEntry("/Photos", [fileEntry("/Photos/cat.jpg")])]))).rejects.toThrow(AppleHealthFileError);
   });
 });

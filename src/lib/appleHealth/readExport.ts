@@ -93,3 +93,82 @@ export async function readAppleHealthExport(
   }
   return summary;
 }
+
+/** A file plus where it sat inside the folder the person picked or dropped. */
+export type ExportFile = { file: File; path: string };
+
+/**
+ * Finds export.xml among the files of an unzipped Apple Health export. On a
+ * Mac, opening export.zip gives an "apple_health_export" folder that holds
+ * export.xml next to export_cda.xml, workout-routes and electrocardiograms.
+ */
+export function findExportXml(files: ExportFile[]): File | null {
+  const candidates = files.filter(({ path }) => /(^|\/)export\.xml$/i.test(path));
+  candidates.sort((a, b) => a.path.split("/").length - b.path.split("/").length);
+  return candidates[0]?.file ?? null;
+}
+
+/** Picks the export.xml out of a folder chosen with a folder picker. */
+export function exportFromFolderSelection(files: FileList | File[]): File {
+  const list = Array.from(files).map((file) => ({ file, path: file.webkitRelativePath || file.name }));
+  const xml = findExportXml(list);
+  if (!xml) {
+    throw new AppleHealthFileError(
+      "That folder doesn't have export.xml in it. Choose the apple_health_export folder you got from the Health app.",
+    );
+  }
+  return xml;
+}
+
+type Entry = {
+  isFile: boolean;
+  isDirectory: boolean;
+  name: string;
+  fullPath: string;
+  file?: (resolve: (file: File) => void, reject: (error: unknown) => void) => void;
+  createReader?: () => { readEntries: (resolve: (entries: Entry[]) => void, reject: (error: unknown) => void) => void };
+};
+
+async function readFolder(entry: Entry, depth: number): Promise<ExportFile[]> {
+  if (entry.isFile && entry.file) {
+    const file = await new Promise<File>((resolve, reject) => entry.file!(resolve, reject));
+    return [{ file, path: entry.fullPath.replace(/^\//, "") }];
+  }
+  // export.xml sits at the top of the export folder, so there's no need to
+  // walk deep into workout routes or ECG folders.
+  if (!entry.isDirectory || !entry.createReader || depth > 2) return [];
+  const reader = entry.createReader();
+  const children: Entry[] = [];
+  while (true) {
+    const batch = await new Promise<Entry[]>((resolve, reject) => reader.readEntries(resolve, reject));
+    if (!batch.length) break;
+    children.push(...batch);
+  }
+  const wanted = children.filter((child) => child.isDirectory || /^export\.(xml|zip)$/i.test(child.name));
+  return (await Promise.all(wanted.map((child) => readFolder(child, depth + 1)))).flat();
+}
+
+/**
+ * Works out what was dropped onto the page: the export folder, export.zip,
+ * or export.xml. Returns the file to read.
+ */
+export async function exportFromDrop(dataTransfer: DataTransfer): Promise<File> {
+  const entries = Array.from(dataTransfer.items ?? [])
+    .map((item) => (item.kind === "file" && "webkitGetAsEntry" in item ? (item.webkitGetAsEntry() as Entry | null) : null))
+    .filter((entry): entry is Entry => entry !== null);
+
+  if (entries.some((entry) => entry.isDirectory)) {
+    const files = (await Promise.all(entries.map((entry) => readFolder(entry, 0)))).flat();
+    const xml = findExportXml(files);
+    if (xml) return xml;
+    const zip = files.find(({ path }) => /(^|\/)export\.zip$/i.test(path));
+    if (zip) return zip.file;
+    throw new AppleHealthFileError(
+      "That folder doesn't have export.xml in it. Drop the apple_health_export folder you got from the Health app.",
+    );
+  }
+
+  const file = dataTransfer.files?.[0];
+  if (!file) throw new AppleHealthFileError("Nothing was dropped. Try dragging the export folder again.");
+  return file;
+}

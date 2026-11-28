@@ -234,7 +234,7 @@ export default function ImportDataPage() {
           <p className={styles.eyebrow}>DATA MANAGEMENT</p>
           <h1>Import data</h1>
           <p className={styles.description}>
-            Add daily metric records to your existing Baseline data.
+            Bring your data into Baseline. Start with Apple Health, or use a CSV for anything else.
           </p>
         </header>
 
@@ -253,8 +253,8 @@ export default function ImportDataPage() {
         >
           <div className={styles.panelHeading}>
             <div>
-              <p className={styles.eyebrow}>CSV FILE</p>
-              <h2 id="upload-title">Choose a data file</h2>
+              <p className={styles.eyebrow}>OTHER SOURCES</p>
+              <h2 id="upload-title">Import a CSV file</h2>
             </div>
             <button
               className={styles.templateButton}

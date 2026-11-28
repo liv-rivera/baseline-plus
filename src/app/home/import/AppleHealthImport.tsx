@@ -1,9 +1,15 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import Link from "next/link";
 import type { AppleHealthDay } from "@/lib/appleHealth/collector";
-import { AppleHealthFileError, readAppleHealthExport } from "@/lib/appleHealth/readExport";
+import {
+  AppleHealthFileError,
+  exportFromDrop,
+  exportFromFolderSelection,
+  readAppleHealthExport,
+} from "@/lib/appleHealth/readExport";
+import { HealthExportGuide } from "./HealthExportGuide";
 import styles from "./page.module.css";
 
 // The metrics API takes up to 5,000 days and 5 MiB per request. A day of
@@ -19,7 +25,7 @@ type Props = {
   onImported: () => void;
 };
 
-type Preview = { fileName: string; newDays: AppleHealthDay[]; alreadySaved: string[] };
+type Preview = { sourceName: string; newDays: AppleHealthDay[]; alreadySaved: string[] };
 
 const show = (value: number | null) => (value === null ? "—" : value.toLocaleString("en-US"));
 const isPartial = (day: AppleHealthDay) =>
@@ -34,16 +40,25 @@ export function AppleHealthImport({ ownerId, ownerEmail, savedDates, disabled, o
   const [successMessage, setSuccessMessage] = useState("");
   const selection = useRef(0);
 
-  const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
+  const [dragging, setDragging] = useState(false);
+
+  const start = () => {
     const version = ++selection.current;
-    const file = event.target.files?.[0];
-    // Clear the input so choosing the same file again (say, after importing it) still triggers a read.
-    event.target.value = "";
     setPreview(null);
     setError("");
     setSuccessMessage("");
     setStatus("");
-    if (!file || !ownerId) return;
+    return version;
+  };
+
+  const fail = (version: number, readError: unknown) => {
+    if (version !== selection.current) return;
+    setStatus("");
+    setError(readError instanceof AppleHealthFileError ? readError.message : "This export couldn't be read.");
+  };
+
+  const readExport = async (version: number, file: File, sourceName: string) => {
+    if (!ownerId) return;
     setPreviewOwner(ownerId);
     setStatus("Reading your export…");
     try {
@@ -58,11 +73,43 @@ export function AppleHealthImport({ ownerId, ownerEmail, savedDates, disabled, o
         setError("Every day in this export is already saved. Nothing new to add.");
         return;
       }
-      setPreview({ fileName: file.name, newDays, alreadySaved });
+      setPreview({ sourceName, newDays, alreadySaved });
     } catch (readError) {
-      if (version !== selection.current) return;
-      setStatus("");
-      setError(readError instanceof AppleHealthFileError ? readError.message : "This export couldn't be read.");
+      fail(version, readError);
+    }
+  };
+
+  const handleFolder = (event: ChangeEvent<HTMLInputElement>) => {
+    const version = start();
+    const files = Array.from(event.target.files ?? []);
+    // Clear the input so choosing the same folder again (say, after importing it) still triggers a read.
+    event.target.value = "";
+    if (!files.length) return;
+    try {
+      const xml = exportFromFolderSelection(files);
+      void readExport(version, xml, (xml.webkitRelativePath || xml.name).split("/")[0]);
+    } catch (folderError) {
+      fail(version, folderError);
+    }
+  };
+
+  const handleFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const version = start();
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file) void readExport(version, file, file.name);
+  };
+
+  const handleDrop = async (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragging(false);
+    if (disabled || pending) return;
+    const version = start();
+    try {
+      const file = await exportFromDrop(event.dataTransfer);
+      await readExport(version, file, file.webkitRelativePath?.split("/")[0] || file.name);
+    } catch (dropError) {
+      fail(version, dropError);
     }
   };
 
@@ -129,34 +176,65 @@ export function AppleHealthImport({ ownerId, ownerEmail, savedDates, disabled, o
         </div>
       </div>
 
-      <ol className={styles.steps}>
-        <li>On your iPhone, open Health, tap your picture, then Export All Health Data.</li>
-        <li>Save the <code>export.zip</code> somewhere you can reach from this computer, then choose it below.</li>
-      </ol>
+      <p className={styles.panelIntro}>
+        Bring in your steps, move, sleep and mindful minutes straight from the export the Health app makes. It
+        takes a couple of minutes on your iPhone, then one drag here.
+      </p>
 
-      <label className={styles.filePicker}>
-        <span className={styles.filePickerTitle}>{preview?.fileName || "Select export.zip"}</span>
-        <span className={styles.filePickerHelp}>
-          {status || "The file is read in this browser. Only daily totals are sent to Baseline."}
-        </span>
-        <input
-          type="file"
-          accept=".zip,.xml,application/zip,text/xml,application/xml"
-          onChange={handleFile}
-          disabled={disabled || pending}
-        />
-      </label>
+      <HealthExportGuide />
 
-      <div className={styles.formatInfo}>
-        <h3>What gets imported</h3>
+      <div
+        className={`${styles.dropZone} ${dragging ? styles.dropZoneActive : ""}`}
+        onDragOver={(event) => {
+          event.preventDefault();
+          if (!disabled && !pending) setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        aria-busy={Boolean(status)}
+      >
+        <p className={styles.dropTitle}>{preview?.sourceName ?? "Drop the apple_health_export folder here"}</p>
+        <p className={styles.dropHelp}>
+          {status || "Or the export.zip itself. It's read here in your browser, and only the daily totals are sent to Baseline."}
+        </p>
+        {status && <span className={styles.progressBar} aria-hidden="true" />}
+        <div className={styles.dropActions}>
+          <label className={`button ${styles.pickButton}`} aria-disabled={disabled || pending}>
+            Choose folder
+            <input
+              type="file"
+              aria-label="Apple Health export folder"
+              multiple
+              // Lets the person pick the whole apple_health_export folder.
+              {...{ webkitdirectory: "", directory: "" }}
+              onChange={handleFolder}
+              disabled={disabled || pending}
+            />
+          </label>
+          <label className={`button-secondary ${styles.pickButton}`} aria-disabled={disabled || pending}>
+            Choose export.zip
+            <input
+              type="file"
+              aria-label="Apple Health export.zip"
+              accept=".zip,.xml,application/zip,text/xml,application/xml"
+              onChange={handleFile}
+              disabled={disabled || pending}
+            />
+          </label>
+        </div>
+        <p className={styles.dropHint}>On an iPhone or iPad, use Choose export.zip and pick the file from Files.</p>
+      </div>
+
+      <details className={styles.formatInfo}>
+        <summary>What gets imported</summary>
         <p>
           Steps, active energy, sleep (Core, Deep and REM) and mindful minutes, added up by the
           local date on each record. When your iPhone and Apple Watch both counted steps, the
           Watch&apos;s count is used. A night of sleep counts toward the day you woke up. If a day
           has no sleep or mindful data, that total is left blank instead of being saved as 0.
-          Days you&apos;ve already saved are skipped.
+          Days you&apos;ve already saved are skipped, so you can import a newer export any time.
         </p>
-      </div>
+      </details>
 
       {error && (
         <div className={styles.errorBox} role="alert">
