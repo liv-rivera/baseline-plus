@@ -88,10 +88,6 @@
     padding: 0 2px;
   }
 
-  .mark {
-    margin-bottom: 25px;
-  }
-
   .intro h1 {
     font-size: 38px;
   }
@@ -114,10 +110,6 @@
   .main {
     padding-top: 30px;
     padding-bottom: 24px;
-  }
-
-  .mark {
-    margin-bottom: 32px;
   }
 
   .rule {
