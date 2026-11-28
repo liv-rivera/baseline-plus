@@ -98,6 +98,34 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
     return form;
   }
 
+  it("deletes all of one person's records but keeps their account", async () => {
+    const { insertDailyMetrics, readDailyMetrics } = await import("./metricsRepository");
+    const { changeDay } = await import("./journal");
+    const { deleteAllRecords } = await import("./deleteAllData");
+    const otherUser = randomUUID();
+    await pool.query(
+      "INSERT INTO users (id, email, display_name) VALUES ($1, $2, 'Other')",
+      [otherUser, `${otherUser}@example.com`],
+    );
+    await insertDailyMetrics(userId, [makeMetric("2026-10-01"), makeMetric("2026-10-02")]);
+    await insertDailyMetrics(otherUser, [makeMetric("2026-10-01")]);
+    expect(
+      await changeDay(userId, entry({ date: "2026-10-01", action: "context", energy: "3", note: "" })),
+    ).toBe("Saved.");
+
+    expect(await deleteAllRecords(userId)).toEqual({ days: 2 });
+
+    expect(await readDailyMetrics(userId)).toEqual([]);
+    const leftovers = await pool.query(
+      `SELECT (SELECT count(*) FROM daily_check_ins WHERE user_id=$1)::int AS check_ins,
+              (SELECT count(*) FROM metric_contributions c JOIN daily_metrics m ON m.id=c.daily_metric_id WHERE m.user_id=$1)::int AS contributions,
+              (SELECT count(*) FROM users WHERE id=$1)::int AS account`,
+      [userId],
+    );
+    expect(leftovers.rows[0]).toEqual({ check_ins: 0, contributions: 0, account: 1 });
+    expect(await readDailyMetrics(otherUser)).toHaveLength(1);
+  });
+
   it("keeps check-ins independent and rejects stale, conflicting and unconfirmed changes", async () => {
     const { changeDay, readDay } = await import("./journal");
     const date = "2026-11-02";
