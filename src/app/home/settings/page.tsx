@@ -5,6 +5,9 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { SignInMethods } from "./SignInMethods";
 import { CheckInSettings } from "./CheckInSettings";
+import { BetaInvites } from "./BetaInvites";
+import { isOwnerEmail, listInvites, signUpLink } from "@/lib/betaInvites";
+import { canEmailOthers } from "@/lib/accountEmail";
 import { getCheckInTime, listCheckInFields } from "@/lib/checkIns";
 import styles from "../journal/journal.module.css";
 export default async function Settings({
@@ -17,6 +20,15 @@ export default async function Settings({
   const accounts = await auth.api.listUserAccounts({
     headers: await headers(),
   });
+  const owner = session.user.emailVerified && isOwnerEmail(session.user.email);
+  const invites = owner
+    ? (await listInvites()).map((invite) => ({
+        ...invite,
+        createdAt: invite.createdAt.toISOString(),
+        emailedAt: invite.emailedAt?.toISOString() ?? null,
+        link: signUpLink(invite.email),
+      }))
+    : [];
   return (
     <div className={styles.page}>
       <h1>Account settings</h1>
@@ -37,6 +49,7 @@ export default async function Settings({
         time={await getCheckInTime(session.user.id)}
         fields={await listCheckInFields(session.user.id, { includeRetired: true })}
       />
+      {owner && <BetaInvites invites={invites} canEmail={canEmailOthers()} />}
       <section>
         <h2>Your data</h2>
         <p>Download everything Baseline+ stores for you as a JSON file.</p>

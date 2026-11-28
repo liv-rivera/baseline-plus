@@ -23,6 +23,23 @@ beforeEach(() => {
 });
 
 describe("AuthForm", () => {
+  it("opens on create account with the invited address filled in", () => {
+    render(<AuthForm invitedEmail="sam@example.com" />);
+    expect(screen.getByRole("form", { name: "Create account form" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toHaveValue("sam@example.com");
+    expect(screen.getByText(/invited to the beta/)).toBeInTheDocument();
+  });
+
+  it("explains that sign-up is invite-only when an account can't be created", async () => {
+    const user = userEvent.setup();
+    authClientMock.signUp.email.mockResolvedValue({ data: null, error: { message: "Registration is closed" } });
+    render(<AuthForm invitedEmail="sam@example.com" />);
+    await user.type(screen.getByLabelText("Name"), "Sam");
+    await user.type(screen.getByLabelText("Password"), "a-secure-password");
+    await user.click(within(screen.getByRole("form", { name: "Create account form" })).getByRole("button"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("invite-only");
+  });
+
   it("creates an account and confirms that verification email was sent", async () => {
     const user = userEvent.setup();
     authClientMock.signUp.email.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });

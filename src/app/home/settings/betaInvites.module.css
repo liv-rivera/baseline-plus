@@ -1,0 +1,85 @@
+.add {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: end;
+  gap: 10px;
+}
+
+.add button {
+  grid-column: 1 / -1;
+}
+
+.list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.who {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.email {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.joined {
+  color: var(--good);
+  font-weight: 600;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.row form {
+  display: contents;
+}
+
+.section .quiet {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.section .quiet:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.section p.ok {
+  color: var(--good);
+}
+
+.section p.problem {
+  color: var(--warn);
+}
+
+.empty {
+  color: var(--muted);
+  font-size: 14px;
+}
