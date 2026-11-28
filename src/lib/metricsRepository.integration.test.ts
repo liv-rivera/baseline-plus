@@ -26,6 +26,7 @@ const migrationFiles = [
   "006_check_ins.sql",
   "007_apple_health_source.sql",
   "008_check_in_fields.sql",
+  "009_beta_invites.sql",
 ];
 
 const makeMetric = (
@@ -709,6 +710,25 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
       }
     },
   );
+
+  it("lets an invited address register and stops it once the invite is removed", async () => {
+    vi.stubEnv("BASELINE_OWNER_EMAIL", "owner@example.test");
+    try {
+      const { auth } = await import("@/lib/auth");
+      const { addInvite, removeInvite } = await import("@/lib/betaInvites");
+      const invited = randomUUID() + "@example.test";
+      const removed = randomUUID() + "@example.test";
+      await addInvite(invited.toUpperCase(), "Fixture", userId);
+      await addInvite(removed, null, userId);
+      await removeInvite(removed);
+      for (const email of [invited, removed])
+        await auth.api.signUpEmail({ body: { email, name: "Invitee", password: randomUUID() } }).catch(() => undefined);
+      const { rows } = await pool.query("SELECT email FROM users WHERE email = ANY($1)", [[invited, removed]]);
+      expect(rows).toEqual([{ email: invited }]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 
   it("inserts and reads back daily metrics with their contributions", async () => {
     const { insertDailyMetrics, readDailyMetrics, readMetricAverages } =

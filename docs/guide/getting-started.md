@@ -4,11 +4,11 @@
 
 Baseline+ is invite-only during the beta. Your invite tells you which email address to sign up with, and the account has to use that exact address.
 
-1. Open Baseline+ and choose to create an account.
-2. Enter your email address and a password of at least 12 characters.
+1. Open the sign-up link in your invite. It takes you straight to the create-account form with your address filled in. (No link? Open Baseline+ and choose **Create account**.)
+2. Enter your name and a password of at least 12 characters. Leave the email address as it is.
 3. Check your inbox for a verification email and open the link in it. That signs you in and takes you to your dashboard.
 
-If the email doesn't turn up after a few minutes, check your spam folder, then use **Resend verification email** on the sign-in page. You can ask for a new one once a minute.
+If the email doesn't turn up after a few minutes, check your spam folder and make sure you used the address your invite went to. A different address won't get an email. Then use **Resend verification email** on the sign-in page. You can ask for a new one once a minute.
 
 ## Signing in
 

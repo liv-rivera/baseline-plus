@@ -8,6 +8,7 @@ import {
   getAuthoritativeSessionFromCtx,
 } from "better-auth/api";
 import { sendAccountEmail } from "@/lib/accountEmail";
+import { mayRegister } from "@/lib/betaInvites";
 import { getDatabasePool } from "@/lib/database";
 
 const configuredBaseURL =
@@ -195,9 +196,8 @@ export const auth = betterAuth({
       create: {
         before: async (user) => {
           const email = user.email.trim().toLowerCase();
-          if (
-            email !== process.env.BASELINE_OWNER_EMAIL?.trim().toLowerCase()
-          ) {
+          // Invite-only: the owner address and the owner's beta invite list.
+          if (!(await mayRegister(email))) {
             throw new APIError("FORBIDDEN", {
               message: "Registration is closed for this address.",
             });
