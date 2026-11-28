@@ -5,6 +5,8 @@ import { getRequestSession } from "@/lib/auth-session";
 import { readDay, recentCheckIns, validDay } from "@/lib/journal";
 import { checkInLine } from "@/lib/dashboardStats";
 import { listCheckInFields, readCheckIn, recentCheckInTags } from "@/lib/checkIns";
+import { buildPrompts, isPromptDate } from "@/lib/checkInPrompts";
+import { readPromptHistory } from "@/lib/promptHistory";
 import { CheckInForm } from "./CheckInForm";
 import { DayForm } from "./DayForm";
 import { DayPicker } from "./DayPicker";
@@ -29,6 +31,11 @@ export default async function Journal({
         recentCheckInTags(session.user.id),
       ])
     : [[], null, []];
+  // Questions only make sense while the day is fresh, so older days never get them.
+  const prompts =
+    selected && isPromptDate(date, new Date())
+      ? buildPrompts(date, await readPromptHistory(session.user.id, date), fields)
+      : [];
   const props = { date, owner: session.user.id };
   return (
     <div className={styles.page}>
@@ -111,6 +118,7 @@ export default async function Journal({
             answers={saved?.answers ?? {}}
             revision={saved?.revision}
             recentTags={tags}
+            prompts={prompts}
           />
         </>
       )}

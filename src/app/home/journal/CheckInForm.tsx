@@ -1,10 +1,33 @@
 "use client";
-import { useActionState, useState } from "react";
+import { Fragment, useActionState, useState, useSyncExternalStore } from "react";
+import type { CheckInPrompt as Prompt } from "@/lib/checkInPrompts";
 import type { CheckInAnswer, CheckInField } from "@/lib/checkInValues";
 import { type CheckInFormState, submitCheckIn } from "./checkInActions";
+import { CheckInPrompt } from "./CheckInPrompt";
 import styles from "./checkIn.module.css";
 
 const initial: CheckInFormState = { ok: false, message: "" };
+
+// Dismissed questions are remembered per day in this browser only.
+const subscribeToStorage = (onChange: () => void) => {
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
+};
+const readStorage = (key: string) => {
+  try {
+    return localStorage.getItem(key) ?? "[]";
+  } catch {
+    return "[]";
+  }
+};
+const parseList = (text: string): string[] => {
+  try {
+    const value = JSON.parse(text);
+    return Array.isArray(value) ? value.map(String) : [];
+  } catch {
+    return [];
+  }
+};
 
 /**
  * The daily check-in: one screen, every field optional. Empty means "not recorded".
@@ -17,6 +40,7 @@ export function CheckInForm({
   answers,
   revision,
   recentTags,
+  prompts = [],
 }: {
   date: string;
   owner: string;
@@ -24,8 +48,34 @@ export function CheckInForm({
   answers: Record<string, CheckInAnswer>;
   revision?: string;
   recentTags: string[];
+  /** Questions from the day's metrics, shown above their linked field (T266). */
+  prompts?: Prompt[];
 }) {
   const [state, submit, pending] = useActionState(submitCheckIn, initial);
+  // A question goes away once its field has an answer, or when it's dismissed for the day.
+  const [answered, setAnswered] = useState(() => new Set(Object.keys(answers)));
+  const dismissKey = `check-in-prompts-dismissed:${owner}:${date}`;
+  const stored = useSyncExternalStore(subscribeToStorage, () => readStorage(dismissKey), () => "[]");
+  const [dismissedNow, setDismissedNow] = useState<string[]>([]);
+  const dismissed = new Set([...parseList(stored), ...dismissedNow]);
+  const dismiss = (metric: string) => {
+    const next = [...new Set([...dismissed, metric])];
+    setDismissedNow(next);
+    try {
+      localStorage.setItem(dismissKey, JSON.stringify(next));
+    } catch {
+      // Storage can be unavailable; the dismissal then lasts until the page reloads.
+    }
+  };
+  const markAnswered = (fieldId: string, value: unknown) =>
+    setAnswered((current) => {
+      const next = new Set(current);
+      if (value === null) next.delete(fieldId);
+      else next.add(fieldId);
+      return next;
+    });
+  const visiblePrompts = (fieldId: string) =>
+    prompts.filter((p) => p.fieldId === fieldId && !dismissed.has(p.metric) && !answered.has(fieldId));
   const currentRevision = state.cleared ? "" : (state.revision ?? revision ?? "");
   return (
     <form action={submit} className={styles.form} aria-label="Daily check-in">
@@ -36,7 +86,18 @@ export function CheckInForm({
         const answer = state.cleared ? undefined : answers[field.id];
         switch (field.kind) {
           case "score":
-            return <ScoreField key={field.id + (state.cleared ? "-cleared" : "")} field={field} initial={answer?.kind === "score" ? answer.score : null} />;
+            return (
+              <Fragment key={field.id + (state.cleared ? "-cleared" : "")}>
+                {visiblePrompts(field.id).map((prompt) => (
+                  <CheckInPrompt key={prompt.metric} prompt={prompt} onDismiss={() => dismiss(prompt.metric)} />
+                ))}
+                <ScoreField
+                  field={field}
+                  initial={answer?.kind === "score" ? answer.score : null}
+                  onChange={(value) => markAnswered(field.id, value)}
+                />
+              </Fragment>
+            );
           case "yes_no":
             return <YesNoField key={field.id + (state.cleared ? "-cleared" : "")} field={field} initial={answer?.kind === "yes_no" ? answer.yesNo : null} />;
           case "number":
@@ -90,11 +151,23 @@ export function CheckInForm({
   );
 }
 
-function ScoreField({ field, initial }: { field: CheckInField; initial: number | null }) {
-  const [value, setValue] = useState<number | null>(initial);
+function ScoreField({
+  field,
+  initial,
+  onChange,
+}: {
+  field: CheckInField;
+  initial: number | null;
+  onChange?: (value: number | null) => void;
+}) {
+  const [value, setValueState] = useState<number | null>(initial);
+  const setValue = (next: number | null) => {
+    setValueState(next);
+    onChange?.(next);
+  };
   const labels = field.scoreLabels ?? [];
   return (
-    <fieldset className={styles.field}>
+    <fieldset className={styles.field} id={`field-${field.id}`}>
       <legend className={styles.label}>{field.label}</legend>
       <input type="hidden" name={`field_${field.id}`} value={value ?? ""} />
       <div className={styles.scale} role="radiogroup" aria-label={field.label}>

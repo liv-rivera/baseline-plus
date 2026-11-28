@@ -1073,6 +1073,32 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
       expect((await readDailyMetrics(legacyUser)).find((m) => m.date === day)?.checkIn?.symptoms ?? []).toEqual([]);
     });
 
+    it("reads prompt history: newest HRV and resting HR aggregates, Apple Health sleep only", async () => {
+      const { readPromptHistory } = await import("./promptHistory");
+      const { insertDailyMetrics } = await import("./metricsRepository");
+      const add = (date: string, key: string, value: number, version = 1, owner = userId) =>
+        pool.query(
+          `INSERT INTO daily_metric_aggregates (id, user_id, local_date, metric_key, value, unit, aggregation_method,
+             selected_source_policy, input_fingerprint, aggregation_version)
+           VALUES ($1, $2, $3, $4, $5, $6, 'mean', 'apple_health', 'fixture', $7)`,
+          [randomUUID(), owner, date, key, value, key === "hrv_sdnn" ? "ms" : "bpm", version],
+        );
+      await add(day, "hrv_sdnn", 41.5);
+      await add(day, "hrv_sdnn", 39, 2); // a newer calculation of the same day wins
+      await add("2026-11-19", "resting_heart_rate", 58);
+      await add("2026-10-01", "resting_heart_rate", 99); // outside the 28-day window
+      await add(day, "resting_heart_rate", 70, 1, legacyUser); // someone else
+      await insertDailyMetrics(userId, [
+        makeMetric(day, { source: "apple_health", restMinutes: 410, restPeriods: [] }),
+        makeMetric("2026-11-19", { restMinutes: 30 }), // CSV "rest" isn't sleep
+      ]);
+      expect(await readPromptHistory(userId, day)).toEqual({
+        hrv: [{ date: day, value: 39 }],
+        resting_heart_rate: [{ date: "2026-11-19", value: 58 }],
+        sleep_duration: [{ date: day, value: 410 }],
+      });
+    });
+
     it("adds the POTS starter set once, skipping fields the owner already has", async () => {
       const { addCheckInField, applyCheckInPreset, listCheckInFields, setCheckInFieldRetired } = await import("./checkIns");
       expect(await applyCheckInPreset(userId, "nope")).toMatchObject({ ok: false });
