@@ -979,6 +979,58 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
       expect(rows[0].n).toBe(0);
     });
 
+    it("adds the POTS starter set once, skipping fields the owner already has", async () => {
+      const { addCheckInField, applyCheckInPreset, listCheckInFields, setCheckInFieldRetired } = await import("./checkIns");
+      expect(await applyCheckInPreset(userId, "nope")).toMatchObject({ ok: false });
+      // The owner already tracks dizziness, and once tracked fluids but hid the field.
+      const dizziness = await addCheckInField(userId, { label: "dizziness", kind: "score" });
+      const fluids = await addCheckInField(userId, { label: "Fluids", kind: "number", unit: "ml" });
+      if (!dizziness.ok || !fluids.ok) throw new Error("field setup failed");
+      await setCheckInFieldRetired(userId, fluids.field.id, true);
+
+      expect(await applyCheckInPreset(userId, "pots")).toEqual({
+        ok: true,
+        added: ["Brain fog", "Flare today", "Salt", "Compression worn", "Meds taken"],
+        restored: ["Fluids"],
+        skipped: ["Dizziness"],
+      });
+      const fields = await listCheckInFields(userId, { includeRetired: true });
+      expect(fields.filter((f) => f.label.toLowerCase() === "dizziness")).toHaveLength(1);
+      // The restored field keeps the owner's own unit and history.
+      expect(fields.filter((f) => f.label === "Fluids")).toEqual([
+        expect.objectContaining({ id: fluids.field.id, unit: "ml", retired: false }),
+      ]);
+      expect(fields.find((f) => f.label === "Salt")).toMatchObject({ kind: "number", unit: "g", preset: "pots" });
+      const brainFog = fields.find((f) => f.label === "Brain fog")!;
+      expect(brainFog).toMatchObject({ kind: "score", promptMetrics: ["sleep_duration"] });
+      expect(brainFog.scoreLabels).toHaveLength(5);
+      expect(fields.at(-1)?.systemKey).toBe("notes");
+
+      // Running it again changes nothing.
+      expect(await applyCheckInPreset(userId, "pots")).toMatchObject({ ok: true, added: [], restored: [] });
+      expect(await listCheckInFields(userId, { includeRetired: true })).toHaveLength(fields.length);
+
+      // Another account is unaffected.
+      expect((await listCheckInFields(legacyUser)).map((f) => f.label)).not.toContain("Salt");
+    });
+
+    it("lets only one of two first saves for the same day win", async () => {
+      const { listCheckInFields, readCheckIn, saveCheckIn } = await import("./checkIns");
+      const energy = (await listCheckInFields(userId)).find((f) => f.systemKey === "energy")!;
+      const race = "2026-11-23";
+      const results = await Promise.all([
+        saveCheckIn(userId, race, { [energy.id]: "2" }),
+        saveCheckIn(userId, race, { [energy.id]: "5" }),
+      ]);
+      expect(results.filter((r) => r.ok)).toHaveLength(1);
+      expect(results.find((r) => !r.ok)).toMatchObject({ message: /Reload/ });
+      const winner = results.findIndex((r) => r.ok);
+      expect((await readCheckIn(userId, race))?.answers[energy.id]).toEqual({
+        kind: "score",
+        score: winner === 0 ? 2 : 5,
+      });
+    });
+
     it("defaults the check-in time to evening and removes everything with the account", async () => {
       const { getCheckInTime, setCheckInTime, saveCheckIn, listCheckInFields } = await import("./checkIns");
       expect(await getCheckInTime(userId)).toBe("evening");
