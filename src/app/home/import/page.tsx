@@ -223,7 +223,7 @@ export default function ImportDataPage() {
   }
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <div className={styles.content}>
         <Link className={styles.backLink} href="/home">
           Back to dashboard
@@ -424,6 +424,6 @@ export default function ImportDataPage() {
           )}
         </section>
       </div>
-    </main>
+    </div>
   );
 }

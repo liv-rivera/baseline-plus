@@ -6,14 +6,14 @@
   justify-content: center;
   gap: 8px;
   padding: 16px 18px;
-  border: 1px solid #d8e1dc;
-  border-top: 3px solid #d57b58;
-  border-radius: 5px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--focus);
+  border-radius: var(--radius);
   background: #fff;
 }
 
 .metric {
-  color: #18352e;
+  color: var(--ink);
   font-size: 28px;
   font-weight: 600;
   line-height: 1.1;
@@ -21,7 +21,7 @@
 }
 
 .label {
-  color: #687a73;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 600;
   line-height: 1.3;
@@ -39,6 +39,6 @@
 }
 
 .interactive:focus-visible {
-  outline: 3px solid #d57b58;
+  outline: 3px solid var(--focus);
   outline-offset: 3px;
 }

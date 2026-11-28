@@ -1,13 +1,44 @@
+/* Baseline+ design tokens. Every page and component reads colours, type and
+   spacing from here so the app (and the read-only /demo) look like one product. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+
+  --bg: #f6f8f7;
+  --surface: #ffffff;
+  --surface-muted: #f0f4f2;
+  --ink: #10201a;
+  --muted: #5b6b64;
+  --line: #e1e7e4;
+  --line-strong: #c9d4cf;
+
+  --brand: #0f3d2e;
+  --brand-ink: #eaf6ef;
+  --accent: #0f7a4f;
+  --accent-hover: #0b6241;
+  --accent-soft: #e3f2ea;
+  --good: #0f7a4f;
+  --warn: #b4442a;
+  --warn-soft: #f6e4dd;
+  --focus: #d57b58;
+
+  --sport-run: #e4572e;
+  --sport-ride: #2f6fdb;
+  --sport-swim: #13a3b5;
+  --sport-yoga: #8a5cc7;
+  --sport-strength: #c48a12;
+  --sport-other: #9aa8a2;
+
+  --radius: 12px;
+  --radius-small: 8px;
+  --font-text: var(--font-geist-sans), system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), var(--font-geist-sans), system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
 }
 
 html {
@@ -24,17 +55,21 @@ body {
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  font-family: var(--font-text);
+  font-size: 15px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 a {
@@ -42,8 +77,68 @@ a {
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+/* Shared controls, used as plain class names from any page. */
+.button,
+.button-secondary {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.button {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.button:hover {
+  background: var(--accent-hover);
+}
+
+.button-secondary {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.button-secondary:hover {
+  background: var(--surface-muted);
+}
+
+.button:disabled,
+.button-secondary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.text-link {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.text-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
