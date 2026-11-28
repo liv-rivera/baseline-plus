@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { SignInMethods } from "./SignInMethods";
+import { CheckInSettings } from "./CheckInSettings";
+import { getCheckInTime, listCheckInFields } from "@/lib/checkIns";
 import styles from "../journal/journal.module.css";
 export default async function Settings({
   searchParams,
@@ -29,6 +31,11 @@ export default async function Settings({
         enabled={Boolean(
           process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
         )}
+      />
+      <CheckInSettings
+        owner={session.user.id}
+        time={await getCheckInTime(session.user.id)}
+        fields={await listCheckInFields(session.user.id, { includeRetired: true })}
       />
       <section>
         <h2>Your data</h2>

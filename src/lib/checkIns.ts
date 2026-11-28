@@ -356,3 +356,16 @@ export async function setCheckInTime(owner: string, time: CheckInTime): Promise<
     [owner, time],
   );
 }
+
+/** Tags the owner has used before, most recent first, offered as quick chips in the Notes field. */
+export async function recentCheckInTags(owner: string, limit = 24): Promise<string[]> {
+  const result = await getDatabasePool().query<{ tag: string }>(
+    `SELECT tag FROM (
+       SELECT t.tag, max(a.local_date) AS last_used
+       FROM check_in_answers a CROSS JOIN LATERAL unnest(a.tags) AS t(tag)
+       WHERE a.user_id = $1 GROUP BY t.tag
+     ) used ORDER BY last_used DESC, tag LIMIT $2`,
+    [owner, limit],
+  );
+  return result.rows.map((row) => row.tag);
+}
