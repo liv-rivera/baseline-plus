@@ -128,6 +128,34 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
     expect(await readDailyMetrics(otherUser)).toHaveLength(1);
   });
 
+  it("saves Apple Health heart readings by day and replaces them on a new import", async () => {
+    const { saveVitals } = await import("./vitalsRepository");
+    const read = (owner: string) =>
+      pool.query(
+        `SELECT local_date::text AS date, metric_key, value::float AS value, unit FROM daily_metric_aggregates
+          WHERE user_id=$1 ORDER BY local_date, metric_key`,
+        [owner],
+      );
+    expect(await saveVitals(userId, [])).toEqual({ saved: 0 });
+    expect(
+      await saveVitals(userId, [
+        { date: "2026-11-01", hrv: 44.5, restingHeartRate: 58 },
+        { date: "2026-11-02", hrv: null, restingHeartRate: 60 },
+        { date: "2026-11-03", hrv: null, restingHeartRate: null },
+      ]),
+    ).toEqual({ saved: 2 });
+    await saveVitals(userId, [{ date: "2026-11-01", hrv: 47, restingHeartRate: null }]);
+    expect((await read(userId)).rows).toEqual([
+      { date: "2026-11-01", metric_key: "hrv_sdnn", value: 47, unit: "ms" },
+      { date: "2026-11-01", metric_key: "resting_heart_rate", value: 58, unit: "bpm" },
+      { date: "2026-11-02", metric_key: "resting_heart_rate", value: 60, unit: "bpm" },
+    ]);
+    expect((await read(legacyUser)).rows).toEqual([]);
+    const { deleteAllRecords } = await import("./deleteAllData");
+    await deleteAllRecords(userId);
+    expect((await read(userId)).rows).toEqual([]);
+  });
+
   it("keeps check-ins independent and rejects stale, conflicting and unconfirmed changes", async () => {
     const { changeDay, readDay } = await import("./journal");
     const date = "2026-11-02";
@@ -420,6 +448,8 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
     expect((await GET(new Request(origin + "/api/export"))).status).toBe(401);
     const { insertDailyMetrics } = await import("./metricsRepository");
     await insertDailyMetrics(userId, [makeMetric(date)]);
+    const { saveVitals } = await import("./vitalsRepository");
+    await saveVitals(userId, [{ date, hrv: 42, restingHeartRate: null }]);
     const response = await GET(request);
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(await response.json()).toMatchObject({
@@ -435,6 +465,7 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
         },
       ],
       check_ins: [{ date, note: "Owned fixture" }],
+      daily_readings: [expect.objectContaining({ date, metric: "hrv_sdnn", value: 42, unit: "ms" })],
     });
     expect(
       (await call("unlink-account", { accountId: "other" }, { cookie })).status,

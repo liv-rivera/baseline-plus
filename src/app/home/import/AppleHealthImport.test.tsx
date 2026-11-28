@@ -78,6 +78,26 @@ it("sends the days with the skip option and reports what was kept", async () => 
   expect(onImported).toHaveBeenCalled();
 });
 
+it("fills in heart readings for days that are already saved", async () => {
+  reader.read.mockResolvedValueOnce({
+    days: [day("2026-11-02")],
+    vitals: [{ date: "2026-11-02", hrv: 44.5, restingHeartRate: 57 }],
+    recordsUsed: 5,
+  });
+  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ saved: 1 }), { status: 201 }));
+  vi.stubGlobal("fetch", fetchMock);
+  const { user } = setup(["2026-11-02"]);
+  await chooseFile(user);
+  expect(await screen.findByText(/HRV or resting heart rate for 1 day\./)).toBeInTheDocument();
+  await user.click(await screen.findByText("Add heart readings"));
+
+  expect(await screen.findByRole("status")).toHaveTextContent("Saved HRV and resting heart rate for 1 day.");
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  const [url, init] = fetchMock.mock.calls[0];
+  expect(url).toBe("/api/vitals");
+  expect(JSON.parse(init.body)).toEqual([{ date: "2026-11-02", hrv: 44.5, restingHeartRate: 57 }]);
+});
+
 it("shows the reader's explanation when the file isn't an export", async () => {
   const { AppleHealthFileError } = await import("@/lib/appleHealth/readExport");
   reader.read.mockRejectedValueOnce(new AppleHealthFileError("This zip doesn't contain export.xml."));
