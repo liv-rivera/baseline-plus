@@ -157,10 +157,11 @@ test("a private owner verifies, imports a summary and recovers access on mobile"
   await page.goto("/demo");
   await page.keyboard.press("Tab");
   await expect(
-    page.getByRole("link", { name: "Back to sign in" }),
+    page.getByRole("link", { name: "Baseline+", exact: true }),
   ).toBeFocused();
+  await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/");
   await page.getByLabel("Prior window").selectOption("28");
-  await expect(page.getByText(/27 observed days/)).toBeVisible();
+  await expect(page.getByText(/28 observed days/)).toBeVisible();
   await page.setViewportSize({ width: 1440, height: 1000 });
   expect(
     await page.evaluate(
