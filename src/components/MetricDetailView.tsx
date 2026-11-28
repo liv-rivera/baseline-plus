@@ -40,7 +40,7 @@ export const MetricDetailView = ({
   const latestDate = records[records.length - 1]?.date;
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <div className={styles.content}>
         <Link className={styles.backLink} href="/home">Back to dashboard</Link>
 
@@ -108,6 +108,6 @@ export const MetricDetailView = ({
           </div>
         </section>
       </div>
-    </main>
+    </div>
   );
 };

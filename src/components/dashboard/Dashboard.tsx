@@ -1,0 +1,261 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
+import { PersonalRecap } from "@/components/PersonalRecap";
+import { ReadinessGauge } from "@/components/readinessGauge";
+import { calculateChange, calculateTrend } from "@/lib/metricCalculations";
+import {
+  formatMinutes,
+  formatNumber,
+  formatSigned,
+  percentChange,
+  priorMedian,
+  recentSeries,
+  recentSessions,
+  sportLabels,
+  trainingDays,
+  type MetricKey,
+} from "@/lib/dashboardStats";
+import type { Averages, DailyMetrics } from "@/types/metrics";
+import { TrainingChart } from "./TrainingChart";
+import styles from "./Dashboard.module.css";
+
+type DashboardProps = {
+  metrics: DailyMetrics[];
+  averages: Averages;
+  /** Read-only sample: no links into account pages. */
+  demo?: boolean;
+};
+
+const ranges = [
+  { days: 14, label: "2 weeks" },
+  { days: 42, label: "6 weeks" },
+  { days: 90, label: "3 months" },
+] as const;
+
+const kpis: Array<{ key: MetricKey; label: string; href?: string; format: (v: number | null) => string; unit?: string }> = [
+  { key: "readinessScore", label: "Readiness", format: formatNumber },
+  { key: "steps", label: "Steps", href: "/home/steps", format: formatNumber },
+  { key: "moveCalories", label: "Move", href: "/home/move-calories", format: formatNumber, unit: "kcal" },
+  { key: "restMinutes", label: "Rest", href: "/home/rest", format: formatMinutes },
+  { key: "breatheMinutes", label: "Breathwork", href: "/home/breathwork", format: formatNumber, unit: "min" },
+];
+
+const comparisonRows: Array<{ key: Exclude<MetricKey, "readinessScore">; label: string }> = [
+  { key: "steps", label: "Steps" },
+  { key: "moveCalories", label: "Move calories" },
+  { key: "restMinutes", label: "Rest (min)" },
+  { key: "breatheMinutes", label: "Breathwork (min)" },
+];
+
+const longDate = (date: string) =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+const shortDate = (date: string) =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+
+const sourceLabel = (source: DailyMetrics["source"] | string | undefined) =>
+  source === "import" ? "CSV import" : source === "manual" ? "your journal" : source === "demo" ? "sample data" : source === "apple_health" ? "Apple Health" : "your records";
+
+function readinessDescription(latest: DailyMetrics) {
+  if (latest.readinessScore === null) return "No score recorded for this date.";
+  if (latest.source === "import") return "Score supplied in your import";
+  if (latest.source === "demo") return "Example score";
+  return "Recorded score";
+}
+
+function Sparkline({ values }: { values: Array<number | null> }) {
+  const known = values.filter((v): v is number => v !== null);
+  if (known.length < 2) return <div className={styles.sparkEmpty} />;
+  const min = Math.min(...known);
+  const max = Math.max(...known);
+  const points = values
+    .map((v, i) => (v === null ? null : `${((i / (values.length - 1)) * 100).toFixed(2)},${(30 - ((v - min) / (max - min || 1)) * 26).toFixed(2)}`))
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <svg className={styles.spark} viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true">
+      <polyline points={points} fill="none" stroke="var(--accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function Delta({ pct }: { pct: number | null }) {
+  if (pct === null) return <p className={styles.deltaMuted}>Not enough days for a baseline</p>;
+  const Icon = pct > 0 ? ArrowUpRight : pct < 0 ? ArrowDownRight : Minus;
+  return (
+    <p className={pct >= 0 ? styles.deltaUp : styles.deltaDown}>
+      <Icon size={14} strokeWidth={2.5} aria-hidden="true" />
+      {Math.abs(pct)}% vs 28-day median
+    </p>
+  );
+}
+
+function Scale({ label, value }: { label: string; value: number | null | undefined }) {
+  return (
+    <div className={styles.scaleRow}>
+      <span>{label}</span>
+      <span className={styles.scaleCells} role="img" aria-label={value ? `${label} ${value} of 5` : `${label} skipped`}>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <i key={n} className={value && n <= value ? styles.scaleOn : undefined} />
+        ))}
+      </span>
+      <span className={styles.scaleValue}>{value ?? "–"}</span>
+    </div>
+  );
+}
+
+/** The whole signed-in dashboard. /demo renders this same component with sample records. */
+export function Dashboard({ metrics, averages, demo = false }: DashboardProps) {
+  const [range, setRange] = useState<number>(42);
+  const latest = metrics[metrics.length - 1];
+  const trends = calculateTrend(metrics);
+  const changes = calculateChange(averages, latest);
+  const days = trainingDays(metrics, latest, range);
+  const sessions = recentSessions(metrics);
+  const journalHref = `/home/journal?date=${latest.date}`;
+
+  return (
+    <div className={styles.dashboard}>
+      <header className={styles.header}>
+        <div>
+          <p className={styles.kicker}>Latest record</p>
+          <h1>
+            <time dateTime={latest.date}>{longDate(latest.date)}</time>
+          </h1>
+          <p className={styles.subtle}>
+            {metrics.length} {metrics.length === 1 ? "day" : "days"} of records · latest from {sourceLabel(latest.source)}
+          </p>
+        </div>
+        {!demo && (
+          <div className={styles.headerActions}>
+            <Link className="button-secondary" href="/home/import">Import data</Link>
+            <Link className="button" href={journalHref}>Open this day</Link>
+          </div>
+        )}
+      </header>
+
+      <section className={styles.kpis} aria-label="Latest values">
+        {kpis.map(({ key, label, href, format, unit }) => {
+          const value = typeof latest[key] === "number" ? (latest[key] as number) : null;
+          const pct = percentChange(value, priorMedian(metrics, latest, key));
+          const body = (
+            <>
+              <p className={styles.kpiLabel}>{label}</p>
+              <p className={styles.kpiValue}>
+                {format(value)}
+                {unit && value !== null && <small> {unit}</small>}
+              </p>
+              <Delta pct={pct} />
+              <Sparkline values={recentSeries(metrics, latest, key)} />
+            </>
+          );
+          return href && !demo ? (
+            <Link key={key} href={href} className={`${styles.kpi} ${styles.kpiLink}`} aria-label={`${label}: ${format(value)}. View details`}>
+              {body}
+            </Link>
+          ) : (
+            <div key={key} className={styles.kpi}>{body}</div>
+          );
+        })}
+      </section>
+
+      <div className={styles.mainRow}>
+        <section className={`${styles.panel} ${styles.chartPanel}`} aria-labelledby="training-title">
+          <div className={styles.panelHeading}>
+            <div>
+              <h2 id="training-title">Training and readiness</h2>
+              <p className={styles.subtle}>Minutes by sport each day, with your readiness score.</p>
+            </div>
+            <div className={styles.segmented} role="group" aria-label="Chart range">
+              {ranges.map((option) => (
+                <button
+                  key={option.days}
+                  type="button"
+                  aria-pressed={range === option.days}
+                  className={range === option.days ? styles.segmentOn : styles.segment}
+                  onClick={() => setRange(option.days)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <TrainingChart days={days} />
+        </section>
+
+        <section className={styles.panel} aria-labelledby="readiness-title">
+          <h2 id="readiness-title">Readiness</h2>
+          <div className={styles.readiness}>
+            {latest.readinessScore !== null && (
+              <div className={styles.gauge}><ReadinessGauge score={latest.readinessScore} /></div>
+            )}
+            <p className={styles.subtle}>{readinessDescription(latest)}</p>
+          </div>
+          <h3 className={styles.minorHeading}>Daily check-in</h3>
+          {latest.checkIn ? (
+            <div className={styles.scales}>
+              <Scale label="Energy" value={latest.checkIn.energy} />
+              <Scale label="Soreness" value={latest.checkIn.soreness} />
+            </div>
+          ) : (
+            <p className={styles.subtle}>No check-in for {shortDate(latest.date)}.</p>
+          )}
+          {!demo && <Link className="text-link" href={journalHref}>{latest.checkIn ? "Edit check-in" : "Add a check-in"}</Link>}
+
+          <h3 className={styles.minorHeading}>Recent sessions</h3>
+          {sessions.length === 0 ? (
+            <p className={styles.subtle}>No sport sessions recorded yet.</p>
+          ) : (
+            <ul className={styles.sessions}>
+              {sessions.map((session, i) => (
+                <li key={`${session.date}-${i}`}>
+                  <i style={{ background: `var(--sport-${session.sport})` }} aria-hidden="true" />
+                  <span>
+                    {session.name}
+                    <span className={styles.visuallyHidden}> ({sportLabels[session.sport]})</span>
+                  </span>
+                  <span className={styles.sessionMeta}>{session.minutes} min · {shortDate(session.date)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      <div className={styles.lowerRow}>
+        <section className={styles.panel} aria-labelledby="compare-title">
+          <h2 id="compare-title">How the latest day compares</h2>
+          <p className={styles.subtle}>Against the previous record and your full-history average.</p>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th scope="col">Metric</th>
+                  <th scope="col">Latest</th>
+                  <th scope="col">Vs previous</th>
+                  <th scope="col">Vs average</th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparisonRows.map(({ key, label }) => {
+                  const value = typeof latest[key] === "number" ? (latest[key] as number) : null;
+                  return (
+                    <tr key={key}>
+                      <th scope="row">{label}</th>
+                      <td>{formatNumber(value)}</td>
+                      <td className={(trends[key] ?? 0) >= 0 ? styles.up : styles.down}>{formatSigned(trends[key])}</td>
+                      <td className={(changes[key] ?? 0) >= 0 ? styles.up : styles.down}>{formatSigned(changes[key])}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <PersonalRecap rows={metrics} latest={latest} demo={demo} />
+      </div>
+    </div>
+  );
+}

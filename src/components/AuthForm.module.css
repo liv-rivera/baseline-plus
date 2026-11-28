@@ -1,8 +1,8 @@
 .panel {
   width: min(100%, 440px);
   padding: 30px;
-  border: 1px solid #d8e1dc;
-  border-radius: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 16px 44px rgba(23, 61, 54, 0.08);
 }
@@ -13,7 +13,7 @@
   gap: 4px;
   padding: 4px;
   border: 1px solid #e0e8e3;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: #f2f6f3;
 }
 
@@ -21,9 +21,9 @@
 .selectedMode {
   min-height: 38px;
   border: 0;
-  border-radius: 3px;
+  border-radius: 6px;
   background: transparent;
-  color: #586d64;
+  color: var(--muted);
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -32,7 +32,7 @@
 
 .selectedMode {
   background: #fff;
-  color: #173d36;
+  color: var(--brand);
   box-shadow: 0 1px 3px rgba(20, 51, 43, 0.12);
 }
 
@@ -40,7 +40,7 @@
 .selectedMode:focus-visible,
 .switchPrompt button:focus-visible,
 .submit:focus-visible {
-  outline: 3px solid #d57b58;
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -58,7 +58,7 @@
 
 .heading h2 {
   margin: 0;
-  color: #18352e;
+  color: var(--ink);
   font-size: 24px;
   font-weight: 600;
   line-height: 1.2;
@@ -82,9 +82,9 @@
   min-height: 44px;
   padding: 0 12px;
   border: 1px solid #cbd8d1;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: #fff;
-  color: #18352e;
+  color: var(--ink);
   font: inherit;
   font-weight: 400;
 }
@@ -104,8 +104,8 @@
   min-height: 46px;
   margin-top: 2px;
   border: 0;
-  border-radius: 4px;
-  background: #173d36;
+  border-radius: var(--radius);
+  background: var(--brand);
   color: #f6faf7;
   font: inherit;
   font-size: 14px;
@@ -115,7 +115,7 @@
 }
 
 .submit:hover:not(:disabled) {
-  background: #28594e;
+  background: var(--accent);
 }
 
 .submit:disabled {
@@ -127,7 +127,7 @@
 .notice {
   margin: 0;
   padding: 11px 12px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   font-size: 13px;
   line-height: 1.45;
 }
@@ -141,7 +141,7 @@
 .notice {
   border: 1px solid #c8ddd1;
   background: #f1f8f4;
-  color: #28594e;
+  color: var(--accent);
 }
 
 .switchPrompt {

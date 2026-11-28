@@ -1,0 +1,159 @@
+.shell {
+  display: grid;
+  grid-template-columns: 224px minmax(0, 1fr);
+  min-height: 100vh;
+  /* Paints the sidebar colour the full page height, below the sticky sidebar. */
+  background: linear-gradient(to right, var(--brand) 224px, var(--bg) 224px);
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  height: 100vh;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px 16px;
+  background: var(--brand);
+  color: var(--brand-ink);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.mark {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--brand-ink);
+  color: var(--brand);
+  font-size: 16px;
+}
+
+.nav {
+  display: grid;
+  gap: 4px;
+}
+
+.link,
+.active,
+.disabled {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border-radius: var(--radius-small);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.link {
+  color: rgba(234, 246, 239, 0.78);
+}
+
+.link:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--brand-ink);
+}
+
+.active {
+  background: rgba(255, 255, 255, 0.13);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.disabled {
+  color: rgba(234, 246, 239, 0.45);
+  cursor: not-allowed;
+}
+
+.footer {
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+  padding: 0 8px;
+}
+
+.demoNote {
+  color: rgba(234, 246, 239, 0.7);
+  font-size: 13px;
+}
+
+.demoCta {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-small);
+  background: var(--brand-ink);
+  color: var(--brand);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.main {
+  min-width: 0;
+  padding: 32px clamp(16px, 4vw, 48px) 64px;
+}
+
+@media (max-width: 860px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    background: var(--bg);
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    padding: 12px 16px;
+  }
+
+  .nav {
+    display: flex;
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .link,
+  .active,
+  .disabled {
+    min-height: 36px;
+    flex: none;
+  }
+
+  .footer {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    margin-top: 0;
+    padding: 0;
+  }
+
+  .demoNote {
+    display: none;
+  }
+
+  .demoCta {
+    padding: 0 14px;
+  }
+
+  .main {
+    padding-top: 20px;
+  }
+}

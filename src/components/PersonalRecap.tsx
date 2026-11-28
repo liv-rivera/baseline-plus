@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { DailyMetrics } from "@/types/metrics";
 import { personalRecap } from "@/lib/personalRecap";
+import styles from "./PersonalRecap.module.css";
 const metrics = {
   steps: "Steps",
   moveCalories: "Move (kcal)",
@@ -27,9 +28,11 @@ export function PersonalRecap({
     metric,
   );
   return (
-    <section aria-labelledby="recap">
+    <section className={styles.panel} aria-labelledby="recap">
       <h2 id="recap">Personal comparisons</h2>
-      <label>
+      <p className={styles.subtle}>Your latest day against your own recent days, using the same entry method.</p>
+      <div className={styles.controls}>
+      <label className={styles.field}>
         Metric{" "}
         <select
           value={metric}
@@ -41,8 +44,8 @@ export function PersonalRecap({
             </option>
           ))}
         </select>
-      </label>{" "}
-      <label>
+      </label>
+      <label className={styles.field}>
         Prior window{" "}
         <select
           value={window}
@@ -52,17 +55,18 @@ export function PersonalRecap({
           <option value="28">28 days</option>
         </select>
       </label>
-      <p>
+      </div>
+      <p className={styles.latest}>
         {latest.date}: {latest[metric]} · Source:{" "}
         {latest.source ?? "unspecified"}
         {latest.manuallyCorrected && " · Manually corrected"}
       </p>
-      <p>
+      <p className={styles.stat}>
         {reference.median === null
           ? "Too few comparable days for a baseline."
           : `Prior median: ${reference.median}. Latest difference: ${latest[metric] - reference.median}.`}
       </p>
-      <h3>Weekly recap</h3>
+      <h3 className={styles.minor}>Weekly recap</h3>
       <p>
         {week.median === null || previousWeek.median === null
           ? "Weekly change needs at least four observed days in each week."
@@ -80,18 +84,18 @@ export function PersonalRecap({
           ["Previous week", previousWeek],
         ] as const
       ).map(([label, period]) => (
-        <details key={label}>
+        <details key={label} className={styles.period}>
           <summary>
             {label}: {period.start} to {period.end} ·{" "}
             {period.observations.length} observed days
           </summary>
-          <ul>
+          <ul className={styles.days}>
             {period.observations.map((o) => (
               <li key={o.date}>
                 {demo ? (
                   o.date
                 ) : (
-                  <Link href={`/home/journal?date=${o.date}`}>{o.date}</Link>
+                  <Link className="text-link" href={`/home/journal?date=${o.date}`}>{o.date}</Link>
                 )}{" "}
                 · {o.value}
                 {o.checkedIn && " · Check-in saved"}
@@ -99,11 +103,11 @@ export function PersonalRecap({
             ))}
           </ul>
           {period.gaps.length > 0 && (
-            <p>Missing or different entry method: {period.gaps.join(", ")}</p>
+            <p className={styles.gaps}>Missing or different entry method: {period.gaps.join(", ")}</p>
           )}
         </details>
       ))}
-      <p>
+      <p className={styles.footnote}>
         Comparisons use the same entry method. CSV files do not identify the
         device.
       </p>

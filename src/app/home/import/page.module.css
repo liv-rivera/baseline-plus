@@ -1,18 +1,11 @@
 .page {
-  --ink: #18352e;
-  --muted: #687a73;
-  --line: #d8e1dc;
-
-  min-height: 100vh;
-  background: #f1f5f2;
   color: var(--ink);
-  font-family: var(--font-geist-sans);
 }
 
 .content {
   width: min(100%, 1040px);
   margin: 0 auto;
-  padding: 34px 40px 72px;
+  padding: 0;
 }
 
 .backLink {
@@ -20,14 +13,14 @@
   min-height: 38px;
   align-items: center;
   margin-bottom: 24px;
-  color: #28594e;
+  color: var(--accent);
   font-size: 13px;
   font-weight: 600;
 }
 
 .backLink:hover,
 .successMessage a:hover {
-  color: #173d36;
+  color: var(--brand);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -36,7 +29,7 @@
 .templateButton:focus-visible,
 .importButton:focus-visible,
 .filePicker:focus-within {
-  outline: 3px solid #d57b58;
+  outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
 
@@ -65,7 +58,7 @@
   margin-top: 28px;
   padding: 24px;
   border: 1px solid var(--line);
-  border-radius: 5px;
+  border-radius: var(--radius);
   background: #ffffff;
 }
 
@@ -87,9 +80,9 @@
   min-height: 40px;
   padding: 0 14px;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: #fff;
-  color: #28594e;
+  color: var(--accent);
   cursor: pointer;
   font: inherit;
   font-size: 13px;
@@ -97,7 +90,7 @@
 }
 
 .templateButton:hover {
-  background: #f1f5f2;
+  background: var(--bg);
 }
 
 .filePicker {
@@ -109,13 +102,13 @@
   margin-top: 22px;
   padding: 18px;
   border: 1px dashed #9db4a8;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: #f8faf8;
   cursor: pointer;
 }
 
 .filePicker:hover {
-  border-color: #4c8068;
+  border-color: var(--accent);
   background: #f3f8f4;
 }
 
@@ -156,9 +149,9 @@
   margin-top: 8px;
   padding: 10px 12px;
   overflow-wrap: anywhere;
-  border-radius: 4px;
-  background: #f1f5f2;
-  color: #28594e;
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--accent);
   font-family: var(--font-geist-mono);
   font-size: 12px;
   line-height: 1.5;
@@ -198,8 +191,8 @@
   min-height: 42px;
   padding: 0 18px;
   border: 0;
-  border-radius: 4px;
-  background: #173d36;
+  border-radius: var(--radius);
+  background: var(--brand);
   color: #f6faf7;
   cursor: pointer;
   font: inherit;
@@ -209,7 +202,7 @@
 }
 
 .importButton:hover {
-  background: #28594e;
+  background: var(--accent);
 }
 
 .tableWrap {
@@ -228,7 +221,7 @@
 .tableWrap th,
 .tableWrap td {
   padding: 10px 12px;
-  border-bottom: 1px solid #e7ede9;
+  border-bottom: 1px solid var(--line);
   font-variant-numeric: tabular-nums;
 }
 
@@ -241,15 +234,15 @@
 .successMessage {
   margin-top: 20px;
   padding: 13px 15px;
-  border-left: 3px solid #4c8068;
+  border-left: 3px solid var(--accent);
   background: #f1f8f3;
-  color: #28594e;
+  color: var(--accent);
   font-size: 14px;
 }
 
 .successMessage a {
   margin-left: 6px;
-  color: #173d36;
+  color: var(--brand);
   font-weight: 600;
 }
 

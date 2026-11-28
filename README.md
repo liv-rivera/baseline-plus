@@ -21,7 +21,7 @@ npm run db:migrate:journal
 npm run db:seed
 ```
 
-The seed moves the existing three dashboard records and their contribution details into PostgreSQL. The separate read-only sample dashboard uses fictional values and does not query account records.
+The seed gives the demo account six weeks of fictional records ending on the day you run it: runs, rides, swims, yoga and light strength work, daily check-ins, and one rough week in the middle. Running it again resets the demo account's records. The read-only sample dashboard at `/demo` shows the same fictional weeks through the same dashboard you see when signed in, and never queries account records. Both come from `src/lib/sampleData.ts`; after changing that file, run `npm run db:seed:generate` to rewrite `database/seed.sql`.
 
 4. With Node 22.12 or newer, install the pinned dependencies and start the app:
 
