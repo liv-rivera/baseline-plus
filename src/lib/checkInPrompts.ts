@@ -138,6 +138,19 @@ const formatSleep = (minutes: number) => {
   return rest === 0 ? `${h} h` : `${h} h ${rest} min`;
 };
 
+export const METRIC_NAMES: Record<PromptMetric, string> = {
+  hrv: "HRV",
+  resting_heart_rate: "resting heart rate",
+  sleep_duration: "sleep",
+};
+
+/** A metric value with its unit, for the "Why?" details. */
+export function formatMetricValue(metric: PromptMetric, value: number) {
+  if (metric === "hrv") return `${Math.round(value)} ms`;
+  if (metric === "resting_heart_rate") return `${Math.round(value)} bpm`;
+  return formatSleep(value);
+}
+
 /** The first sentence: what moved, today's value and the usual range. */
 export function leadSentence(
   metric: PromptMetric,
@@ -198,6 +211,16 @@ export function linkedFields(
     if (ea !== eb) return energyFirst ? ea - eb : eb - ea;
     return a.position - b.position;
   });
+}
+
+/**
+ * Prompts are for a check-in about today or yesterday. Allows a day either side of the
+ * server's UTC date so every time zone's "today" and "yesterday" count.
+ */
+export function isPromptDate(date: string, now: Date) {
+  const today = Math.round(Date.parse(`${now.toISOString().slice(0, 10)}T12:00:00Z`) / 86_400_000);
+  const offset = today - dayNumber(date);
+  return offset >= -1 && offset <= 2;
 }
 
 /** Up to two prompts for a check-in date, largest change first. */
