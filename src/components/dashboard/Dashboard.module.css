@@ -5,26 +5,8 @@
   margin: 0 auto;
 }
 
-.header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px 24px;
-  margin-bottom: 8px;
-}
 
-.header h1 {
-  margin-top: 2px;
-  font-size: clamp(26px, 3vw, 34px);
-  font-weight: 700;
-}
 
-.kicker {
-  color: var(--accent);
-  font-size: 13px;
-  font-weight: 600;
-}
 
 .subtle {
   color: var(--muted);
@@ -37,9 +19,83 @@
   gap: 8px;
 }
 
+.hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(240px, 300px);
+  align-items: center;
+  gap: 20px 32px;
+  padding: 24px 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.bandGood {
+  border-color: #bfe3cf;
+  background: linear-gradient(100deg, var(--accent-soft), var(--surface) 70%);
+}
+
+.bandSteady {
+  --accent: #b7791f;
+  border-color: #ecd8b3;
+  background: linear-gradient(100deg, #fbf1df, var(--surface) 70%);
+}
+
+.bandLow {
+  --accent: var(--warn);
+  border-color: #ecc9bd;
+  background: linear-gradient(100deg, var(--warn-soft), var(--surface) 70%);
+}
+
+.heroScore .gauge {
+  width: 180px;
+}
+
+.heroEmpty {
+  width: 180px;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 56px;
+  text-align: center;
+}
+
+.heroDate {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.heroText h1 {
+  margin-top: 4px;
+  color: var(--accent);
+  font-size: clamp(32px, 4vw, 44px);
+  font-weight: 700;
+}
+
+.heroDetail {
+  margin-top: 6px;
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.heroSource {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.heroSide {
+  display: grid;
+  gap: 14px;
+}
+
+.heroSide .scales {
+  margin: 0;
+}
+
 .kpis {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -47,7 +103,7 @@
   display: grid;
   align-content: start;
   gap: 2px;
-  padding: 14px 16px 10px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -70,7 +126,7 @@
 
 .kpiValue {
   font-family: var(--font-display);
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.2;
@@ -110,14 +166,6 @@
 .deltaDown svg {
   margin-right: 3px;
   vertical-align: -2px;
-}
-
-.spark,
-.sparkEmpty {
-  display: block;
-  width: 100%;
-  height: 32px;
-  margin-top: 6px;
 }
 
 .mainRow {
@@ -245,24 +293,8 @@
   font-size: 13px;
 }
 
-.readiness {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 8px;
-}
 
-.gauge {
-  width: 128px;
-  flex: none;
-  color: var(--ink);
-}
 
-.minorHeading {
-  margin: 18px 0 8px;
-  font-size: 14px;
-  font-weight: 600;
-}
 
 .scales {
   display: grid;
@@ -383,8 +415,12 @@
 }
 
 @media (max-width: 1180px) {
-  .kpis {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .hero {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .heroSide {
+    grid-column: 1 / -1;
   }
 }
 
@@ -406,5 +442,23 @@
 
   .panel {
     padding: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+    padding: 20px;
+    gap: 12px;
+  }
+
+  .heroScore .gauge,
+  .heroEmpty {
+    width: 150px;
+  }
+
+  .heroSide {
+    width: 100%;
   }
 }

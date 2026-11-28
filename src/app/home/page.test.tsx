@@ -53,6 +53,7 @@ describe("Home dashboard page", () => {
     if (score === null) {
       expect(screen.queryByRole("img", { name: /readiness score/i })).toBeNull();
       expect(screen.getByText("No score recorded for this date.")).toBeVisible();
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("No readiness score today");
     } else {
       expect(screen.getByText("Score supplied in your import")).toBeVisible();
       expect(screen.getByRole("img", { name: "Readiness score: 0 out of 100" })).toBeVisible();
@@ -70,6 +71,8 @@ describe("Home dashboard page", () => {
 
     render(<Home />);
 
+    // Readiness leads the page as its main heading
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Ready to train");
     const steps = within(screen.getByRole("row", { name: /^Steps/ }));
     // Latest record values
     expect(steps.getByText("1,200")).toBeInTheDocument();

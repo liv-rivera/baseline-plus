@@ -12,7 +12,6 @@ import {
   formatSigned,
   percentChange,
   priorMedian,
-  recentSeries,
   recentSessions,
   sportLabels,
   trainingDays,
@@ -36,7 +35,6 @@ const ranges = [
 ] as const;
 
 const kpis: Array<{ key: MetricKey; label: string; href?: string; format: (v: number | null) => string; unit?: string }> = [
-  { key: "readinessScore", label: "Readiness", format: formatNumber },
   { key: "steps", label: "Steps", href: "/home/steps", format: formatNumber },
   { key: "moveCalories", label: "Move", href: "/home/move-calories", format: formatNumber, unit: "kcal" },
   { key: "restMinutes", label: "Rest", href: "/home/rest", format: formatMinutes },
@@ -65,20 +63,25 @@ function readinessDescription(latest: DailyMetrics) {
   return "Recorded score";
 }
 
-function Sparkline({ values }: { values: Array<number | null> }) {
-  const known = values.filter((v): v is number => v !== null);
-  if (known.length < 2) return <div className={styles.sparkEmpty} />;
-  const min = Math.min(...known);
-  const max = Math.max(...known);
-  const points = values
-    .map((v, i) => (v === null ? null : `${((i / (values.length - 1)) * 100).toFixed(2)},${(30 - ((v - min) / (max - min || 1)) * 26).toFixed(2)}`))
-    .filter(Boolean)
-    .join(" ");
-  return (
-    <svg className={styles.spark} viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true">
-      <polyline points={points} fill="none" stroke="var(--accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-    </svg>
-  );
+type Band = { tone: "bandGood" | "bandSteady" | "bandLow" | "bandNone"; headline: string; detail: string };
+
+/** Turns the readiness score into one line someone can take in at a glance. */
+function readinessBand(rows: DailyMetrics[], latest: DailyMetrics): Band {
+  const score = latest.readinessScore;
+  if (score === null) {
+    return { tone: "bandNone", headline: "No readiness score today", detail: "Your other numbers for the day are below." };
+  }
+  const baseline = priorMedian(rows, latest, "readinessScore");
+  const diff = baseline === null ? null : Math.round(score - baseline);
+  const versus =
+    diff === null
+      ? "Not enough recent days to compare with your usual yet."
+      : diff === 0
+        ? "Right at your 28-day median."
+        : `${Math.abs(diff)} ${Math.abs(diff) === 1 ? "point" : "points"} ${diff > 0 ? "above" : "below"} your 28-day median.`;
+  if (score >= 70) return { tone: "bandGood", headline: "Ready to train", detail: versus };
+  if (score >= 50) return { tone: "bandSteady", headline: "Take it steady", detail: versus };
+  return { tone: "bandLow", headline: "Recovery day", detail: versus };
 }
 
 function Delta({ pct }: { pct: number | null }) {
@@ -115,26 +118,43 @@ export function Dashboard({ metrics, averages, demo = false }: DashboardProps) {
   const days = trainingDays(metrics, latest, range);
   const sessions = recentSessions(metrics);
   const journalHref = `/home/journal?date=${latest.date}`;
+  const band = readinessBand(metrics, latest);
 
   return (
     <div className={styles.dashboard}>
-      <header className={styles.header}>
-        <div>
-          <p className={styles.kicker}>Latest record</p>
-          <h1>
-            <time dateTime={latest.date}>{longDate(latest.date)}</time>
-          </h1>
-          <p className={styles.subtle}>
-            {metrics.length} {metrics.length === 1 ? "day" : "days"} of records · latest from {sourceLabel(latest.source)}
-          </p>
+      <section className={`${styles.hero} ${styles[band.tone]}`} aria-labelledby="readiness-title">
+        <div className={styles.heroScore}>
+          {latest.readinessScore !== null ? (
+            <div className={styles.gauge}><ReadinessGauge score={latest.readinessScore} /></div>
+          ) : (
+            <p className={styles.heroEmpty} aria-hidden="true">—</p>
+          )}
         </div>
-        {!demo && (
-          <div className={styles.headerActions}>
-            <Link className="button-secondary" href="/home/import">Import data</Link>
-            <Link className="button" href={journalHref}>Open this day</Link>
-          </div>
-        )}
-      </header>
+        <div className={styles.heroText}>
+          <p className={styles.heroDate}>
+            Readiness · <time dateTime={latest.date}>{longDate(latest.date)}</time>
+          </p>
+          <h1 id="readiness-title">{band.headline}</h1>
+          <p className={styles.heroDetail}>{band.detail}</p>
+          <p className={styles.heroSource}>{readinessDescription(latest)}</p>
+        </div>
+        <div className={styles.heroSide}>
+          {latest.checkIn ? (
+            <div className={styles.scales}>
+              <Scale label="Energy" value={latest.checkIn.energy} />
+              <Scale label="Soreness" value={latest.checkIn.soreness} />
+            </div>
+          ) : (
+            <p className={styles.heroSource}>No check-in for {shortDate(latest.date)}.</p>
+          )}
+          {!demo && (
+            <div className={styles.headerActions}>
+              <Link className="button" href={journalHref}>{latest.checkIn ? "Edit check-in" : "Add a check-in"}</Link>
+              <Link className="button-secondary" href="/home/import">Import data</Link>
+            </div>
+          )}
+        </div>
+      </section>
 
       <section className={styles.kpis} aria-label="Latest values">
         {kpis.map(({ key, label, href, format, unit }) => {
@@ -148,7 +168,6 @@ export function Dashboard({ metrics, averages, demo = false }: DashboardProps) {
                 {unit && value !== null && <small> {unit}</small>}
               </p>
               <Delta pct={pct} />
-              <Sparkline values={recentSeries(metrics, latest, key)} />
             </>
           );
           return href && !demo ? (
@@ -185,26 +204,9 @@ export function Dashboard({ metrics, averages, demo = false }: DashboardProps) {
           <TrainingChart days={days} />
         </section>
 
-        <section className={styles.panel} aria-labelledby="readiness-title">
-          <h2 id="readiness-title">Readiness</h2>
-          <div className={styles.readiness}>
-            {latest.readinessScore !== null && (
-              <div className={styles.gauge}><ReadinessGauge score={latest.readinessScore} /></div>
-            )}
-            <p className={styles.subtle}>{readinessDescription(latest)}</p>
-          </div>
-          <h3 className={styles.minorHeading}>Daily check-in</h3>
-          {latest.checkIn ? (
-            <div className={styles.scales}>
-              <Scale label="Energy" value={latest.checkIn.energy} />
-              <Scale label="Soreness" value={latest.checkIn.soreness} />
-            </div>
-          ) : (
-            <p className={styles.subtle}>No check-in for {shortDate(latest.date)}.</p>
-          )}
-          {!demo && <Link className="text-link" href={journalHref}>{latest.checkIn ? "Edit check-in" : "Add a check-in"}</Link>}
-
-          <h3 className={styles.minorHeading}>Recent sessions</h3>
+        <section className={styles.panel} aria-labelledby="sessions-title">
+          <h2 id="sessions-title">Recent sessions</h2>
+          <p className={styles.subtle}>{metrics.length} {metrics.length === 1 ? "day" : "days"} of records · latest from {sourceLabel(latest.source)}</p>
           {sessions.length === 0 ? (
             <p className={styles.subtle}>No sport sessions recorded yet.</p>
           ) : (
