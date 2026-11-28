@@ -100,7 +100,7 @@ npm run test:coverage
 npm run build
 ```
 
-Run `npm run test:integration` with `DATABASE_URL` set to a fresh, empty disposable PostgreSQL database. The suite applies migrations 001–007 and exercises per-account reads and atomic writes.
+Run `npm run test:integration` with `DATABASE_URL` set to a fresh, empty disposable PostgreSQL database. The suite applies migrations 001–008 and exercises per-account reads and atomic writes.
 
 For the browser rehearsal, use a separate freshly migrated disposable database, a local Mailpit instance, `BASELINE_MAIL_TRANSPORT=mailpit`, and a fresh `qa-<uuid>@example.test` as `BASELINE_OWNER_EMAIL`. Set both app URLs to `http://localhost:3300`. Start the app with `npm run dev -- -H 127.0.0.1 -p 3300`. Export the same fixture owner and transport in the test shell. Run `npx playwright install chromium` once, then `npm run test:e2e` (or set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to a local Chromium). It exercises verification, import, reset-link reuse, credential change and session invalidation. To run the equivalent HTTP lifecycle checks against a separate fresh fixture, set `BASELINE_API_ONLY=1` in the test shell. The database and inbox should contain synthetic records only.
 
@@ -115,6 +115,8 @@ Baseline is a personal software project and is not a medical device. It does not
 Settings offers password sign-in and optional Google linking. Configure the web client callback as `<BETTER_AUTH_URL>/api/auth/callback/google` and set both server-side Google variables. Verify the Baseline email and sign in again before linking. The Google account must use the same verified email. Test linking, signing out, Google sign-in, cancellation and disconnect with a dedicated owner fixture before using a real account. The implementation uses Better Auth 1.7.6, its internal account ID for unlinking, and the identity scopes openid, email and profile. See the [account linking guide](https://better-auth.com/docs/concepts/users-accounts) and [Google provider guide](https://better-auth.com/docs/authentication/google).
 
 The daily journal uses the selected local date. A check-in may exist without totals. Leave a total blank if it wasn't recorded; a day needs at least one. Edits require the revision that was displayed, so a stale tab cannot overwrite another save. Manual corrections keep the original source and are labeled in the journal and export. Corrected imports are compared with other corrected imports. A total with underlying activities can be removed with confirmation but cannot be edited independently of its activities. The signed-in JSON download includes all saved daily totals, activity details and check-ins, including dates outside the dashboard window. Store downloaded files privately.
+
+The check-in on each journal day uses the fields set under Settings > Daily check-in. Scores run from 1 to 5 with a short description for each number, and anything left empty is saved as not recorded rather than as a low score or a no. Hiding a field keeps its history. Deleting one removes its answers as well.
 
 ### Backup and deletion
 

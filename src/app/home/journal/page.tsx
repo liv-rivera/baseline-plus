@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getRequestSession } from "@/lib/auth-session";
 import { readDay, recentCheckIns, validDay } from "@/lib/journal";
+import { listCheckInFields, readCheckIn, recentCheckInTags } from "@/lib/checkIns";
+import { CheckInForm } from "./CheckInForm";
 import { DayForm } from "./DayForm";
 import { DayPicker } from "./DayPicker";
 import styles from "./journal.module.css";
@@ -15,10 +17,17 @@ export default async function Journal({
   if (!session) redirect("/");
   const date = (await searchParams).date ?? "";
   const selected = validDay(date);
-  const { metric, checkIn } = selected
+  const { metric } = selected
     ? await readDay(session.user.id, date)
-    : { metric: undefined, checkIn: undefined };
+    : { metric: undefined };
   const recent = await recentCheckIns(session.user.id);
+  const [fields, saved, tags] = selected
+    ? await Promise.all([
+        listCheckInFields(session.user.id),
+        readCheckIn(session.user.id, date),
+        recentCheckInTags(session.user.id),
+      ])
+    : [[], null, []];
   const props = { date, owner: session.user.id };
   return (
     <div className={styles.page}>
@@ -76,40 +85,20 @@ export default async function Journal({
               action="delete-metric"
             />
           )}
-          <h2>Optional check-in</h2>
-          <DayForm
-            key={date + "context"}
-            {...props}
-            revision={checkIn?.revision}
-            action="context"
-          >
-            {(["energy", "soreness"] as const).map((key) => (
-              <label key={key}>
-                {key === "energy" ? "Energy" : "Soreness"} (1 low, 5 high)
-                <select name={key} defaultValue={checkIn?.[key] ?? ""}>
-                  <option value="">Skip</option>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <option key={n}>{n}</option>
-                  ))}
-                </select>
-              </label>
-            ))}
-            <label>
-              Optional note
-              <textarea
-                name="note"
-                maxLength={240}
-                defaultValue={checkIn?.note}
-              />
-            </label>
-          </DayForm>
-          {checkIn && (
-            <DayForm
-              {...props}
-              revision={checkIn.revision}
-              action="delete-context"
-            />
-          )}
+          <h2 id="check-in">Check-in</h2>
+          <p>
+            Every field is optional. Leave anything you didn&apos;t notice empty.{" "}
+            <Link href="/home/settings#check-in-fields">Change fields</Link>
+          </p>
+          <CheckInForm
+            key={date + "check-in"}
+            date={date}
+            owner={session.user.id}
+            fields={fields}
+            answers={saved?.answers ?? {}}
+            revision={saved?.revision}
+            recentTags={tags}
+          />
         </>
       )}
       {recent.length > 0 && (
