@@ -24,7 +24,17 @@ if (
     "Set BASELINE_REHEARSAL=synthetic and a loopback BASELINE_QA_ADMIN_URL with CREATE DATABASE permission.",
   );
 }
-const admin = new Pool({ connectionString: url.href });
+// DROP DATABASE ... WITH (FORCE) in cleanup terminates backends (57P01). A pool can
+// resolve end() before its last socket closes, so ignore that one teardown error.
+function guarded(pool) {
+  pool.on("error", (error) => {
+    if (error.code === "57P01") return;
+    console.error(error);
+    process.exitCode = 1;
+  });
+  return pool;
+}
+const admin = guarded(new Pool({ connectionString: url.href }));
 const runId = randomUUID().replaceAll("-", "");
 const created = [];
 const root = await mkdtemp(path.join(tmpdir(), "baseline-rehearsal-"));
@@ -83,7 +93,7 @@ try {
   await ready("http://127.0.0.1:8025/readyz");
   for (const mode of ["browser", "api"]) {
     const dbUrl = await database(mode);
-    const pool = new Pool({ connectionString: dbUrl });
+    const pool = guarded(new Pool({ connectionString: dbUrl }));
     try {
       for (const migration of (await readdir("database/migrations")).sort())
         await pool.query(
@@ -154,7 +164,7 @@ try {
           restoreUrl,
           backup,
         ]);
-        const restored = new Pool({ connectionString: restoreUrl });
+        const restored = guarded(new Pool({ connectionString: restoreUrl }));
         try {
           assert.equal(
             (await restored.query("SELECT 1 FROM users WHERE id=$1", [owner]))
