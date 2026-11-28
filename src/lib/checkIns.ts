@@ -10,6 +10,7 @@ import {
   fieldDraftError,
   parseCheckInAnswer,
 } from "./checkInValues";
+import { findPreset } from "./checkInPresets";
 
 // Storage for configurable check-ins (T257). Every query is scoped by the owner's user id.
 // The legacy energy/soreness/note columns on daily_check_ins are kept in step with the
@@ -368,4 +369,60 @@ export async function recentCheckInTags(owner: string, limit = 24): Promise<stri
     [owner, limit],
   );
   return result.rows.map((row) => row.tag);
+}
+
+export type PresetResult =
+  | { ok: true; added: string[]; restored: string[]; skipped: string[] }
+  | { ok: false; message: string };
+
+/**
+ * Add a starter set. A field whose name is already on the form is skipped; one that was hidden
+ * with the same name and type is shown again, so its history carries on.
+ */
+export async function applyCheckInPreset(owner: string, presetId: string): Promise<PresetResult> {
+  const preset = findPreset(presetId);
+  if (!preset) return { ok: false, message: "Unknown starter set." };
+  const existing = await listCheckInFields(owner, { includeRetired: true });
+  return inTransaction(async (client) => {
+    const added: string[] = [];
+    const restored: string[] = [];
+    const skipped: string[] = [];
+    const next = await client.query<{ position: number }>(
+      "SELECT COALESCE(max(position), -1) + 1 AS position FROM check_in_fields WHERE user_id = $1 AND system_key IS DISTINCT FROM 'notes'",
+      [owner],
+    );
+    let position = next.rows[0].position;
+    for (const field of preset.fields) {
+      const same = existing.filter((f) => f.label.toLowerCase() === field.label.toLowerCase());
+      if (same.some((f) => !f.retired)) {
+        skipped.push(field.label);
+        continue;
+      }
+      const hidden = same.find((f) => f.kind === field.kind);
+      if (hidden) {
+        await client.query(
+          "UPDATE check_in_fields SET retired_at = NULL, position = $3 WHERE user_id = $1 AND id = $2",
+          [owner, hidden.id, position++],
+        );
+        restored.push(field.label);
+        continue;
+      }
+      await client.query(
+        `INSERT INTO check_in_fields (user_id, label, kind, score_labels, unit, prompt_metrics, position, preset)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          owner,
+          field.label,
+          field.kind,
+          field.kind === "score" ? (field.scoreLabels ?? SYMPTOM_SCORE_LABELS) : null,
+          field.kind === "number" ? (field.unit ?? null) : null,
+          field.promptMetrics ?? [],
+          position++,
+          preset.id,
+        ],
+      );
+      added.push(field.label);
+    }
+    return { ok: true as const, added, restored, skipped };
+  });
 }

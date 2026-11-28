@@ -1,5 +1,6 @@
 "use client";
 import { useActionState } from "react";
+import { CHECK_IN_PRESETS } from "@/lib/checkInPresets";
 import type { CheckInField, CheckInTime } from "@/lib/checkInValues";
 import { type ManageState, manageCheckIn } from "./checkInSettingsActions";
 import styles from "./checkInSettings.module.css";
@@ -94,6 +95,20 @@ export function CheckInSettings({
         </label>
         <button disabled={pending}>Add field</button>
       </form>
+
+      {CHECK_IN_PRESETS.filter((preset) =>
+        preset.fields.some((f) => !active.some((a) => a.label.toLowerCase() === f.label.toLowerCase())),
+      ).map((preset) => (
+        <form key={preset.id} action={act} className={styles.preset}>
+          {hidden("preset")}
+          <input type="hidden" name="preset" value={preset.id} />
+          <div>
+            <strong>{preset.name}</strong>
+            <p>{preset.description}</p>
+          </div>
+          <button className={styles.quiet} disabled={pending}>Add {preset.name}</button>
+        </form>
+      ))}
 
       {retired.length > 0 && (
         <details>
