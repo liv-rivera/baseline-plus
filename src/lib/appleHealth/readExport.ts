@@ -88,8 +88,8 @@ export async function readAppleHealthExport(
     throw new AppleHealthFileError("This zip doesn't contain export.xml. Choose the export.zip saved from the Health app.");
   }
   const summary = collector.finish();
-  if (!summary.days.length) {
-    throw new AppleHealthFileError("No steps, active energy, sleep or mindful minutes were found in this export.");
+  if (!summary.days.length && !summary.vitals.length) {
+    throw new AppleHealthFileError("No steps, active energy, sleep, mindful minutes or heart readings were found in this export.");
   }
   return summary;
 }

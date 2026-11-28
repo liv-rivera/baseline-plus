@@ -123,4 +123,26 @@ describe("edge cases", () => {
     const days = collectAppleHealthXml(xml).days;
     expect(days.map((day) => [day.date, day.restMinutes])).toEqual([["2026-01-02", 510], ["2026-01-03", 420]]);
   });
+
+  it("averages HRV and resting heart rate per day from the preferred device, apart from the totals", () => {
+    const reading = (type: string, unit: string, source: string, start: string, value: string) =>
+      `<Record type="HKQuantityTypeIdentifier${type}" sourceName="${source}" unit="${unit}" startDate="${start}" endDate="${start}" value="${value}">
+        <HeartRateVariabilityMetadataList></HeartRateVariabilityMetadataList>
+      </Record>`;
+    const xml = [
+      reading("HeartRateVariabilitySDNN", "ms", "Alex's Apple Watch", "2026-01-01 03:00:00 -1000", "40"),
+      reading("HeartRateVariabilitySDNN", "ms", "Alex's Apple Watch", "2026-01-01 05:00:00 -1000", "51"),
+      reading("HeartRateVariabilitySDNN", "ms", "Other App", "2026-01-01 05:00:00 -1000", "90"),
+      reading("HeartRateVariabilitySDNN", "ms", "Alex's Apple Watch", "2026-01-01 06:00:00 -1000", "900"), // glitch
+      reading("HeartRateVariabilitySDNN", "s", "Alex's Apple Watch", "2026-01-01 06:00:00 -1000", "0.05"), // wrong unit
+      reading("RestingHeartRate", "count/min", "Alex's Apple Watch", "2026-01-01 20:00:00 -1000", "58"),
+      reading("RestingHeartRate", "count/min", "Alex's Apple Watch", "2026-01-02 20:00:00 -1000", "61"),
+    ].join("\n");
+    const summary = collectAppleHealthXml(xml);
+    expect(summary.days).toEqual([]);
+    expect(summary.vitals).toEqual([
+      { date: "2026-01-01", hrv: 45.5, restingHeartRate: 58 },
+      { date: "2026-01-02", hrv: null, restingHeartRate: 61 },
+    ]);
+  });
 });
