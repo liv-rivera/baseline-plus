@@ -62,12 +62,54 @@
   font-weight: 600;
 }
 
+.form .faces {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.form .faces button {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-height: 72px;
+  padding: 8px 4px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.face {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.faceLabel {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.form .faces button:hover,
 .form .scale button:hover,
 .form .yesNo button:hover,
 .form .tags button:hover,
 .form .secondary:hover {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+.form .faces button.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.form .faces button.selected .faceLabel {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .form .scale button.selected,

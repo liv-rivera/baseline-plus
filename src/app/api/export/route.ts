@@ -36,7 +36,8 @@ export async function GET(request: Request) {
           readiness_score: "source score 0–100",
           energy: "rating 1–5",
           soreness: "rating 1–5",
-          check_in_answers: "score 1–5 described by the field's score_labels; number in the field's unit",
+          check_in_answers:
+            "score 1–5 described by the field's score_labels (faces fields: 1–4 for 😞 😐 🙂 😃, also described by score_labels); number in the field's unit (fluids in L or US fl oz)",
           daily_readings: "hrv_sdnn in ms, resting_heart_rate in bpm (daily mean from Apple Health)",
         },
         date_convention: "Source local calendar date (YYYY-MM-DD)",

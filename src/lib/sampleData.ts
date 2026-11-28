@@ -1,7 +1,8 @@
 // Fictional sample records shared by the /demo page and the demo account seed
 // (scripts/generate-demo-seed.ts writes database/seed.sql from this file).
 // Keep this file free of "@/" imports so Node can run the seed script directly.
-import type { Averages, DailyMetrics } from "../types/metrics";
+import type { Averages, CheckInSymptom, DailyMetrics } from "../types/metrics";
+import { SALT_FACE_LABELS } from "./checkInValues.ts";
 
 export const SAMPLE_DAYS = 42;
 
@@ -31,6 +32,29 @@ const addDays = (date: string, offset: number) => {
   value.setUTCDate(value.getUTCDate() + offset);
   return value.toISOString().slice(0, 10);
 };
+
+/**
+ * Answers for the POTS starter set's fields (src/lib/checkInPresets.ts), in its order.
+ * These use their own random sequence so the metrics above stay the same as before.
+ */
+function potsAnswers(index: number, flare: boolean, hardDay: boolean): CheckInSymptom[] {
+  let seed = 4_200_000 + index * 7919;
+  const random = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
+  random();
+  const between = (min: number, max: number) => Math.round(min + random() * (max - min));
+  // Before and during the flare fluids and salt slip; afterwards they're kept up.
+  const slipping = flare || index === FLARE_START - 1;
+  const salt = slipping ? between(1, 2) : between(3, 4);
+  return [
+    { label: "Dizziness", kind: "score", value: flare ? between(3, 5) : hardDay ? between(1, 3) : between(1, 2) },
+    { label: "Brain fog", kind: "score", value: flare ? between(3, 4) : between(1, 2) },
+    { label: "Flare today", kind: "yes_no", value: flare },
+    { label: "Fluids", kind: "number", value: (slipping ? between(12, 20) : between(20, 32)) / 10, unit: "L" },
+    { label: "Salt", kind: "faces", value: salt, description: SALT_FACE_LABELS[salt - 1] },
+    { label: "Compression worn", kind: "yes_no", value: flare || hardDay || random() < 0.5 },
+    { label: "Meds taken", kind: "yes_no", value: random() < 0.92 },
+  ];
+}
 
 export const isSampleFlareDay = (index: number) => index >= FLARE_START && index <= FLARE_END;
 
@@ -99,11 +123,7 @@ export function generateSampleMetrics(endDate: string, days = SAMPLE_DAYS): Dail
       ? {
           energy: flare ? between(1, 2) : between(3, 5),
           soreness: flare ? between(3, 5) : hardDay ? between(2, 3) : between(1, 2),
-          symptoms: [
-            { label: "Dizziness", kind: "score" as const, value: flare ? between(3, 5) : between(1, 2) },
-            { label: "Flare today", kind: "yes_no" as const, value: flare },
-            { label: "Fluids", kind: "number" as const, value: between(18, 30) / 10, unit: "L" },
-          ],
+          symptoms: potsAnswers(index, flare, hardDay),
         }
       : undefined;
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fieldDraftError, parseCheckInAnswer } from "./checkInValues";
+import { convertFluid, fieldDraftError, parseCheckInAnswer } from "./checkInValues";
 
 describe("parseCheckInAnswer", () => {
   const score = { kind: "score" as const, label: "Energy" };
@@ -17,6 +17,14 @@ describe("parseCheckInAnswer", () => {
     expect(parseCheckInAnswer(score, "3")).toEqual({ kind: "score", score: 3 });
     expect(parseCheckInAnswer(score, 5)).toEqual({ kind: "score", score: 5 });
     for (const raw of ["0", "6", "2.5", "high"]) expect(parseCheckInAnswer(score, raw)).toHaveProperty("error");
+  });
+
+  it("accepts one of the four faces only", () => {
+    const faces = { kind: "faces" as const, label: "Salt" };
+    expect(parseCheckInAnswer(faces, "")).toBeNull();
+    expect(parseCheckInAnswer(faces, "1")).toEqual({ kind: "faces", score: 1 });
+    expect(parseCheckInAnswer(faces, 4)).toEqual({ kind: "faces", score: 4 });
+    for (const raw of ["0", "5", "2.5", "😃"]) expect(parseCheckInAnswer(faces, raw)).toHaveProperty("error");
   });
 
   it("reads yes and no without defaulting", () => {
@@ -50,9 +58,26 @@ describe("fieldDraftError", () => {
     expect(fieldDraftError({ label: "Pain", kind: "score", scoreLabels: ["a", "b"] })).toMatch(/1 to 5/);
   });
 
+  it("needs four descriptions for a faces field", () => {
+    expect(fieldDraftError({ label: "Salt", kind: "faces" })).toBeNull();
+    expect(fieldDraftError({ label: "Salt", kind: "faces", scoreLabels: ["a", "b", "c", "d"] })).toBeNull();
+    expect(fieldDraftError({ label: "Salt", kind: "faces", scoreLabels: ["a", "b", "c", "d", "e"] })).toMatch(/four faces/);
+    expect(fieldDraftError({ label: "Salt", kind: "faces", unit: "g" })).toMatch(/unit/);
+  });
+
   it("keeps units and descriptions on the right field types", () => {
     expect(fieldDraftError({ label: "Fluids", kind: "number", unit: "L" })).toBeNull();
     expect(fieldDraftError({ label: "Flare", kind: "yes_no", unit: "L" })).toMatch(/unit/);
     expect(fieldDraftError({ label: "Flare", kind: "yes_no", scoreLabels: ["a", "b", "c", "d", "e"] })).toMatch(/score/);
+  });
+});
+
+describe("convertFluid", () => {
+  it("converts between litres and US fluid ounces to two decimals", () => {
+    expect(convertFluid(2, "L", "oz")).toBe(67.63);
+    expect(convertFluid(64, "oz", "L")).toBe(1.89);
+    expect(convertFluid(1.5, "L", "L")).toBe(1.5);
+    // A round trip lands within a hundredth.
+    expect(convertFluid(convertFluid(2.4, "L", "oz"), "oz", "L")).toBeCloseTo(2.4, 2);
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 import { Fragment, useActionState, useState, useSyncExternalStore } from "react";
 import type { CheckInPrompt as Prompt } from "@/lib/checkInPrompts";
-import type { CheckInAnswer, CheckInField } from "@/lib/checkInValues";
+import { type CheckInAnswer, type CheckInField, FACES } from "@/lib/checkInValues";
 import { type CheckInFormState, submitCheckIn } from "./checkInActions";
 import { CheckInPrompt } from "./CheckInPrompt";
 import styles from "./checkIn.module.css";
@@ -98,6 +98,14 @@ export function CheckInForm({
                 />
               </Fragment>
             );
+          case "faces":
+            return (
+              <FacesField
+                key={field.id + (state.cleared ? "-cleared" : "")}
+                field={field}
+                initial={answer?.kind === "faces" ? answer.score : null}
+              />
+            );
           case "yes_no":
             return <YesNoField key={field.id + (state.cleared ? "-cleared" : "")} field={field} initial={answer?.kind === "yes_no" ? answer.yesNo : null} />;
           case "number":
@@ -188,6 +196,36 @@ function ScoreField({
       <p className={styles.hint}>
         {value ? labels[value - 1] : `1 ${labels[0]?.toLowerCase() ?? ""} · 5 ${labels[4]?.toLowerCase() ?? ""}`}
       </p>
+    </fieldset>
+  );
+}
+
+/** Four faces, each with its description underneath (for Salt, an approximate amount). */
+function FacesField({ field, initial }: { field: CheckInField; initial: number | null }) {
+  const [value, setValue] = useState<number | null>(initial);
+  const labels = field.scoreLabels ?? [];
+  return (
+    <fieldset className={styles.field}>
+      <legend className={styles.label}>{field.label}</legend>
+      <input type="hidden" name={`field_${field.id}`} value={value ?? ""} />
+      <div className={styles.faces} role="radiogroup" aria-label={field.label}>
+        {FACES.map((face, i) => (
+          <button
+            key={face}
+            type="button"
+            role="radio"
+            aria-checked={value === i + 1}
+            aria-label={labels[i] ?? face}
+            className={value === i + 1 ? styles.selected : undefined}
+            onClick={() => setValue(value === i + 1 ? null : i + 1)}
+          >
+            <span className={styles.face} aria-hidden="true">
+              {face}
+            </span>
+            <span className={styles.faceLabel}>{labels[i]}</span>
+          </button>
+        ))}
+      </div>
     </fieldset>
   );
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { averageMetrics, generateSampleMetrics, isSampleFlareDay, SAMPLE_DAYS } from "./sampleData";
 import { sportOf } from "./dashboardStats";
+import { findPreset } from "./checkInPresets";
 
 describe("sample data", () => {
   const rows = generateSampleMetrics("2026-11-27");
@@ -35,5 +36,16 @@ describe("sample data", () => {
   it("averages whole-history values like the metrics API", () => {
     const avg = averageMetrics(rows);
     expect(avg.steps).toBe(Math.floor(rows.reduce((sum, r) => sum + (r.steps ?? 0), 0) / rows.length));
+  });
+
+  it("answers every POTS starter set field on each check-in, with lower salt and fluids in the flare", () => {
+    const pots = findPreset("pots")!.fields.map((f) => [f.label, f.kind]);
+    const checkIns = rows.flatMap((row, i) => (row.checkIn ? [{ i, symptoms: row.checkIn.symptoms ?? [] }] : []));
+    expect(checkIns.length).toBeGreaterThan(20);
+    for (const { symptoms } of checkIns) expect(symptoms.map((s) => [s.label, s.kind])).toEqual(pots);
+    const salt = (flare: boolean) =>
+      checkIns.filter(({ i }) => isSampleFlareDay(i) === flare).map(({ symptoms }) => symptoms.find((s) => s.label === "Salt")!.value as number);
+    expect(Math.max(...salt(true))).toBeLessThan(3);
+    for (const value of salt(false)) expect(value).toBeGreaterThanOrEqual(1);
   });
 });

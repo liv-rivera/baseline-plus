@@ -57,6 +57,8 @@ describe("dashboard stats", () => {
     expect(checkInLine({ energy: null, soreness: null, symptoms: [] })).toBeNull();
     expect(checkInLine(undefined)).toBeNull();
     expect(symptomText({ label: "Meds taken", kind: "yes_no", value: false })).toBe("Meds taken: no");
+    expect(symptomText({ label: "Salt", kind: "faces", value: 3, description: "About 3 to 6 g" })).toBe("Salt 🙂 (about 3 to 6 g)");
+    expect(symptomText({ label: "Mood", kind: "faces", value: 1 })).toBe("Mood 😞");
   });
 
   it("formats minutes as hours and minutes", () => {

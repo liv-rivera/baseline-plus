@@ -8,13 +8,16 @@ export const CHECK_IN_JSON = `json_build_object(
                       'energy', c.energy,
                       'soreness', c.soreness,
                       'symptoms', COALESCE((
-                        SELECT json_agg(json_build_object(
+                        SELECT json_agg(jsonb_build_object(
                                  'label', f.label,
                                  'kind', f.kind,
-                                 'value', CASE f.kind WHEN 'score' THEN to_json(a.score)
-                                                      WHEN 'yes_no' THEN to_json(a.yes_no)
-                                                      ELSE to_json(a.number) END,
+                                 'value', CASE WHEN f.kind IN ('score', 'faces') THEN to_jsonb(a.score)
+                                               WHEN f.kind = 'yes_no' THEN to_jsonb(a.yes_no)
+                                               ELSE to_jsonb(a.number) END,
                                  'unit', f.unit)
+                               || CASE WHEN f.kind = 'faces'
+                                       THEN jsonb_build_object('description', f.score_labels[a.score])
+                                       ELSE '{}'::jsonb END
                                ORDER BY f.position, f.label)
                           FROM check_in_answers a
                           JOIN check_in_fields f ON f.id = a.field_id AND f.user_id = a.user_id

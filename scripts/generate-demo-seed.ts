@@ -4,6 +4,8 @@
 // the six weeks leading up to the day the seed is run.
 import { writeFileSync } from "node:fs";
 import { generateSampleMetrics, SAMPLE_DAYS } from "../src/lib/sampleData.ts";
+import { findPreset } from "../src/lib/checkInPresets.ts";
+import { SYMPTOM_SCORE_LABELS } from "../src/lib/checkInValues.ts";
 
 const demoUserId = "00000000-0000-4000-8000-000000000001";
 const rows = generateSampleMetrics("2026-01-31");
@@ -14,7 +16,19 @@ const day = (index: number) => `CURRENT_DATE - ${SAMPLE_DAYS - 1 - index}`;
 const metrics: string[] = [];
 const contributions: string[] = [];
 const checkIns: string[] = [];
+const answers: string[] = [];
 let contributionId = 0;
+
+// The demo account starts with the POTS starter set after Energy and Soreness.
+const pots = findPreset("pots")!;
+const potsFields = pots.fields.map((field, i) => ({ ...field, id: uuid("0005", i + 1) }));
+const textArray = (items: string[]) => `ARRAY[${items.map(quote).join(", ")}]`;
+const fieldRows = potsFields.map((field, i) => {
+  const labels =
+    field.kind === "score" ? (field.scoreLabels ?? SYMPTOM_SCORE_LABELS) : field.kind === "faces" ? field.scoreLabels! : null;
+  const metrics = field.promptMetrics?.length ? `${textArray(field.promptMetrics)}::text[]` : "'{}'";
+  return `    (${field.id}, ${quote(demoUserId)}, ${quote(field.label)}, '${field.kind}', ${labels ? textArray(labels) : "NULL"}, ${field.unit ? quote(field.unit) : "NULL"}, ${metrics}, ${i + 2}, 'pots')`;
+});
 
 rows.forEach((row, index) => {
   const metricId = uuid("0003", index + 1);
@@ -27,6 +41,14 @@ rows.forEach((row, index) => {
   row.breathworkSessions.forEach((b) => add("breathwork", b.name, b.durationMinutes, b.durationMinutes));
   if (row.checkIn) {
     checkIns.push(`    (${quote(demoUserId)}, ${day(index)}, ${row.checkIn.energy ?? "NULL"}, ${row.checkIn.soreness ?? "NULL"})`);
+    for (const symptom of row.checkIn.symptoms ?? []) {
+      const field = potsFields.find((f) => f.label === symptom.label && f.kind === symptom.kind);
+      if (!field) throw new Error(`Sample answer ${symptom.label} has no POTS field`);
+      const score = symptom.kind === "score" || symptom.kind === "faces" ? symptom.value : "NULL";
+      const yesNo = symptom.kind === "yes_no" ? symptom.value : "NULL";
+      const number = symptom.kind === "number" ? symptom.value : "NULL";
+      answers.push(`    (${quote(demoUserId)}, ${day(index)}, ${field.id}, ${score}, ${yesNo}, ${number})`);
+    }
   }
 });
 
@@ -39,6 +61,8 @@ VALUES (${quote(demoUserId)}, 'demo@baseline.example', 'Baseline Demo')
 ON CONFLICT (id) DO NOTHING;
 
 DELETE FROM daily_check_ins WHERE user_id = ${quote(demoUserId)};
+DELETE FROM check_in_fields WHERE user_id = ${quote(demoUserId)} AND system_key IS NULL;
+DELETE FROM check_in_settings WHERE user_id = ${quote(demoUserId)};
 DELETE FROM daily_metrics WHERE user_id = ${quote(demoUserId)};
 
 INSERT INTO daily_metrics (
@@ -56,8 +80,17 @@ INSERT INTO daily_check_ins (user_id, local_date, energy, soreness)
 VALUES
 ${checkIns.join(",\n")};
 
+-- ${pots.name}, so the demo shows symptom tracking next to training.
+INSERT INTO check_in_fields (id, user_id, label, kind, score_labels, unit, prompt_metrics, position, preset)
+VALUES
+${fieldRows.join(",\n")};
+
+INSERT INTO check_in_answers (user_id, local_date, field_id, score, yes_no, number)
+VALUES
+${answers.join(",\n")};
+
 COMMIT;
 `;
 
 writeFileSync(new URL("../database/seed.sql", import.meta.url), sql);
-console.info(`Wrote database/seed.sql: ${rows.length} days, ${contributionId} contributions, ${checkIns.length} check-ins.`);
+console.info(`Wrote database/seed.sql: ${rows.length} days, ${contributionId} contributions, ${checkIns.length} check-ins, ${answers.length} POTS answers.`);

@@ -16,6 +16,8 @@ Each account starts with three fields:
 
 Tap a number to pick it, and tap it again to clear it. The description for that number shows underneath, so you don't have to remember what a 3 means.
 
+Some fields use four faces instead: 😞 😐 🙂 😃. Each face has a short description under it. For Salt in the POTS starter set that's a rough amount, from about 10 mg to 1 g under 😞 up to about 6 to 10 g under 😃. It's a quick estimate, not something to weigh out.
+
 Press **Save check-in**. You can come back and change it any time, and the button then says **Save changes**. To wipe a day's answers, open **Clear this day**, tick the box and press **Clear day**.
 
 If you have the journal open in two tabs, Baseline+ won't let an older tab overwrite something you saved in the newer one. Reload and try again.
@@ -38,13 +40,18 @@ Go to **Settings > Daily check-in**.
 
 **When do you usually check in?** Choose evening (about the day you just had) or morning (about last night and today). Evening is the default.
 
+**Measure fluids in.** Choose litres or US fluid ounces. Switching converts the fluid amounts you've already saved (to two decimals), so last month's 2 L shows up as 67.63 oz and your history still lines up. It applies to every number field measured in L or oz, and a starter set you add later uses the same unit.
+
 **Fields on your check-in.** You can rename fields, move them up or down, and hide ones you don't use. To add your own, give it a name and pick a type:
 
 - **Score 1 to 5** for things like dizziness, pain or brain fog.
+- **Faces 😞 😐 🙂 😃** for a quick four-step answer, like how much salt or how well you ate.
 - **Yes / no** for things like "took my rescue medication" or "had a flare".
-- **Number**, with an optional unit, for things like fluids in litres or salt in grams.
+- **Number**, with an optional unit, for things like fluids or electrolyte tablets.
 
-**POTS starter set.** If you have POTS, or something like it, the starter set adds Dizziness, Brain fog, Flare today, Fluids (L), Salt (g), Compression worn and Meds taken in one go. Anything you already track under the same name is left alone, and a field you'd hidden comes back instead of being added twice. Rename, hide or reorder them afterwards like any other field. The box disappears once you have every field in the set.
+**POTS starter set.** If you have POTS, or something like it, the starter set adds Dizziness, Brain fog, Flare today, Fluids (in your chosen unit), Salt (faces), Compression worn and Meds taken in one go. Anything you already track under the same name is left alone, and a field you'd hidden comes back instead of being added twice. Rename, hide or reorder them afterwards like any other field. The box disappears once you have every field in the set.
+
+**Edit descriptions.** Faces fields have an **Edit descriptions** link under their name, so you can change the description under each face. For example, change the Salt amounts to the ranges you use.
 
 Hiding a field takes it off the form but keeps everything you've already recorded. You'll find it under **Hidden fields**, where you can bring it back. You can also delete a field you added yourself, but that removes all of its answers too, so you'll be asked to confirm.
 

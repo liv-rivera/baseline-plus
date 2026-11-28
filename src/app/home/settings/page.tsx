@@ -8,7 +8,7 @@ import { CheckInSettings } from "./CheckInSettings";
 import { BetaInvites } from "./BetaInvites";
 import { isOwnerEmail, listInvites, signUpLink } from "@/lib/betaInvites";
 import { canEmailOthers } from "@/lib/accountEmail";
-import { getCheckInTime, listCheckInFields } from "@/lib/checkIns";
+import { getCheckInTime, getFluidUnit, listCheckInFields } from "@/lib/checkIns";
 import styles from "../journal/journal.module.css";
 export default async function Settings({
   searchParams,
@@ -47,6 +47,7 @@ export default async function Settings({
       <CheckInSettings
         owner={session.user.id}
         time={await getCheckInTime(session.user.id)}
+        fluidUnit={await getFluidUnit(session.user.id)}
         fields={await listCheckInFields(session.user.id, { includeRetired: true })}
       />
       {owner && <BetaInvites invites={invites} canEmail={canEmailOthers()} />}

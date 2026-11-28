@@ -149,3 +149,44 @@
   color: var(--muted);
   font-size: 14px;
 }
+
+.note {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.section .labels {
+  flex: 1 1 100%;
+  order: 1;
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 14px;
+}
+
+.section .labels summary {
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.labels form {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.labels label span {
+  font-size: 20px;
+}
+
+.labels label {
+  display: grid;
+  grid-template-columns: 2em minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.labels button {
+  justify-self: start;
+}

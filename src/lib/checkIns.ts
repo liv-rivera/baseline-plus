@@ -6,6 +6,10 @@ import {
   type CheckInField,
   type CheckInTime,
   type FieldDraft,
+  type FluidUnit,
+  FACE_LABELS,
+  FLUID_UNITS,
+  LITRES_PER_FL_OZ,
   SYMPTOM_SCORE_LABELS,
   fieldDraftError,
   parseCheckInAnswer,
@@ -29,10 +33,19 @@ type AnswerRow = {
   note: string | null;
 };
 
+/** The descriptions stored for a field: five for a score, four for faces, none otherwise. */
+function storedLabels(kind: CheckInField["kind"], labels: string[] | null | undefined): string[] | null {
+  if (kind === "score") return (labels ?? SYMPTOM_SCORE_LABELS).map((l) => l.trim());
+  if (kind === "faces") return (labels ?? FACE_LABELS).map((l) => l.trim());
+  return null;
+}
+
 function toAnswer(row: AnswerRow): CheckInAnswer {
   switch (row.kind) {
     case "score":
       return { kind: "score", score: row.score! };
+    case "faces":
+      return { kind: "faces", score: row.score! };
     case "yes_no":
       return { kind: "yes_no", yesNo: row.yes_no! };
     case "number":
@@ -160,7 +173,7 @@ export async function saveCheckIn(
             owner,
             day,
             field.id,
-            answer.kind === "score" ? answer.score : null,
+            answer.kind === "score" || answer.kind === "faces" ? answer.score : null,
             answer.kind === "yes_no" ? answer.yesNo : null,
             answer.kind === "number" ? answer.number : null,
             answer.kind === "notes" && answer.tags.length ? answer.tags : null,
@@ -226,7 +239,7 @@ export async function addCheckInField(owner: string, draft: FieldDraft): Promise
         owner,
         draft.label.trim(),
         draft.kind,
-        draft.kind === "score" ? (draft.scoreLabels ?? SYMPTOM_SCORE_LABELS).map((l) => l.trim()) : null,
+        storedLabels(draft.kind, draft.scoreLabels),
         draft.kind === "number" ? draft.unit?.trim() || null : null,
         draft.promptMetrics ?? [],
       ],
@@ -267,7 +280,7 @@ export async function updateCheckInField(
         owner,
         fieldId,
         next.label.trim(),
-        next.kind === "score" ? next.scoreLabels!.map((l) => l.trim()) : null,
+        storedLabels(next.kind, next.scoreLabels),
         next.kind === "number" ? next.unit?.trim() || null : null,
         next.promptMetrics,
       ],
@@ -358,6 +371,44 @@ export async function setCheckInTime(owner: string, time: CheckInTime): Promise<
   );
 }
 
+export async function getFluidUnit(owner: string): Promise<FluidUnit> {
+  const result = await getDatabasePool().query<{ fluid_unit: FluidUnit }>(
+    "SELECT fluid_unit FROM check_in_settings WHERE user_id = $1",
+    [owner],
+  );
+  return result.rows[0]?.fluid_unit ?? "L";
+}
+
+/**
+ * Switch fluid amounts between litres and US fluid ounces. Every number field measured in the
+ * other unit changes its unit, and its saved answers are converted (to two decimals), so the
+ * history, charts and export all read in one unit.
+ */
+export async function setFluidUnit(owner: string, unit: FluidUnit): Promise<void> {
+  if (!FLUID_UNITS.includes(unit)) throw new Error("Unknown fluid unit.");
+  const from: FluidUnit = unit === "L" ? "oz" : "L";
+  // Litres to ounces divides by the factor; ounces to litres multiplies.
+  const factor = unit === "oz" ? 1 / LITRES_PER_FL_OZ : LITRES_PER_FL_OZ;
+  await inTransaction(async (client) => {
+    await client.query(
+      `INSERT INTO check_in_settings (user_id, fluid_unit) VALUES ($1, $2)
+       ON CONFLICT (user_id) DO UPDATE SET fluid_unit = EXCLUDED.fluid_unit, updated_at = clock_timestamp()`,
+      [owner, unit],
+    );
+    const fields = await client.query<{ id: string }>(
+      `UPDATE check_in_fields SET unit = $3
+       WHERE user_id = $1 AND kind = 'number' AND unit = $2 RETURNING id`,
+      [owner, from, unit],
+    );
+    if (!fields.rows.length) return;
+    await client.query(
+      `UPDATE check_in_answers SET number = LEAST(round(number * $3::numeric, 2), 999999.99), updated_at = clock_timestamp()
+       WHERE user_id = $1 AND field_id = ANY($2::uuid[]) AND number IS NOT NULL`,
+      [owner, fields.rows.map((f) => f.id), factor],
+    );
+  });
+}
+
 /** Tags the owner has used before, most recent first, offered as quick chips in the Notes field. */
 export async function recentCheckInTags(owner: string, limit = 24): Promise<string[]> {
   const result = await getDatabasePool().query<{ tag: string }>(
@@ -383,6 +434,7 @@ export async function applyCheckInPreset(owner: string, presetId: string): Promi
   const preset = findPreset(presetId);
   if (!preset) return { ok: false, message: "Unknown starter set." };
   const existing = await listCheckInFields(owner, { includeRetired: true });
+  const fluidUnit = await getFluidUnit(owner);
   return inTransaction(async (client) => {
     const added: string[] = [];
     const restored: string[] = [];
@@ -414,8 +466,8 @@ export async function applyCheckInPreset(owner: string, presetId: string): Promi
           owner,
           field.label,
           field.kind,
-          field.kind === "score" ? (field.scoreLabels ?? SYMPTOM_SCORE_LABELS) : null,
-          field.kind === "number" ? (field.unit ?? null) : null,
+          storedLabels(field.kind, field.scoreLabels),
+          field.kind === "number" ? (field.unit === "L" ? fluidUnit : (field.unit ?? null)) : null,
           field.promptMetrics ?? [],
           position++,
           preset.id,
