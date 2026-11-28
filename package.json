@@ -19,10 +19,19 @@
     "db:migrate:webhook-minimization": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/003_minimize_webhook_storage.sql",
     "db:migrate:auth": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/004_auth.sql",
     "auth:bootstrap-demo": "node --env-file=.env.local scripts/bootstrap-demo-account.mjs",
-    "db:seed": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/seed.sql"
+    "db:seed": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/seed.sql",
+    "db:seed:generate": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/generate-demo-seed.ts",
+    "db:migrate:optional-readiness": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/005_optional_readiness.sql",
+    "test:e2e": "playwright test",
+    "db:migrate:journal": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/006_check_ins.sql",
+    "db:migrate:apple-health": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/007_apple_health_source.sql",
+    "db:migrate:check-in-fields": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/008_check_in_fields.sql",
+    "test:private-rehearsal": "node scripts/private-rehearsal.mjs",
+    "test:local-release": "node scripts/local-release-rehearsal.mjs"
   },
   "dependencies": {
     "better-auth": "^1.7.6",
+    "fflate": "^0.8.2",
     "lucide-react": "^1.48.0",
     "next": "16.3.3",
     "papaparse": "^5.7.0",
@@ -33,6 +42,9 @@
     "resend": "^6.30.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.6.0",
+    "@electric-sql/pglite-socket": "^0.3.0",
+    "@playwright/test": "^1.65.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",

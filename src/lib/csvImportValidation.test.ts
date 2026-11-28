@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { requiredCsvHeaders, validateAndParseCsvRows, validateCsvHeaders } from "./csvImportValidation";
+import {
+  requiredCsvHeaders,
+  validateAndParseCsvRows,
+  validateCsvHeaders,
+} from "./csvImportValidation";
 
 describe("validateCsvHeaders", () => {
   it("returns no errors when headers match exactly", () => {
@@ -7,12 +11,14 @@ describe("validateCsvHeaders", () => {
   });
 
   it("errors when a required header is missing", () => {
-    const fields = requiredCsvHeaders.filter((header) => header !== "readinessScore");
+    const fields = requiredCsvHeaders.filter((header) => header !== "steps");
     expect(validateCsvHeaders(fields)).toHaveLength(1);
   });
 
   it("errors when there is an unexpected extra header", () => {
-    expect(validateCsvHeaders([...requiredCsvHeaders, "extraColumn"])).toHaveLength(1);
+    expect(
+      validateCsvHeaders([...requiredCsvHeaders, "extraColumn"]),
+    ).toHaveLength(1);
   });
 
   it("errors when headers are in a different set entirely", () => {
@@ -31,11 +37,46 @@ describe("validateAndParseCsvRows", () => {
   };
 
   it("parses a single valid row with no errors", () => {
-    const { errors, parsedMetrics } = validateAndParseCsvRows([validRow], new Set());
+    const { errors, parsedMetrics } = validateAndParseCsvRows(
+      [validRow],
+      new Set(),
+    );
     expect(errors).toEqual([]);
     expect(parsedMetrics).toHaveLength(1);
-    expect(parsedMetrics[0]).toMatchObject({ date: "2026-01-01", steps: 1000, moveCalories: 200 });
+    expect(parsedMetrics[0]).toMatchObject({
+      date: "2026-01-01",
+      steps: 1000,
+      moveCalories: 200,
+    });
   });
+
+  it.each([
+    [undefined, null],
+    ["  ", null],
+    ["0", 0],
+    ["100", 100],
+  ] as const)(
+    "preserves optional score %s without inventing activities",
+    (value, expected) => {
+      const row: Record<string, string> = { ...validRow };
+      if (value === undefined) delete row.readinessScore;
+      else row.readinessScore = value;
+      expect(validateCsvHeaders(Object.keys(row))).toEqual([]);
+      const { parsedMetrics, errors } = validateAndParseCsvRows(
+        [row],
+        new Set(),
+      );
+      expect(errors).toEqual([]);
+      expect(parsedMetrics[0]).toMatchObject({
+        readinessScore: expected,
+        activities: [],
+        stepActivities: [],
+        restPeriods: [],
+        breathworkSessions: [],
+        steps: 1000,
+      });
+    },
+  );
 
   it("rejects an invalid calendar date", () => {
     const { errors, parsedMetrics } = validateAndParseCsvRows(
@@ -47,33 +88,61 @@ describe("validateAndParseCsvRows", () => {
   });
 
   it("rejects a malformed date string", () => {
-    const { errors } = validateAndParseCsvRows([{ ...validRow, date: "01/01/2026" }], new Set());
+    const { errors } = validateAndParseCsvRows(
+      [{ ...validRow, date: "01/01/2026" }],
+      new Set(),
+    );
     expect(errors[0]).toMatch(/YYYY-MM-DD/);
   });
 
   it("rejects negative or non-integer numeric fields", () => {
-    const { errors } = validateAndParseCsvRows([{ ...validRow, steps: "-5" }], new Set());
-    expect(errors.some((e) => e.includes("steps must be a non-negative whole number"))).toBe(true);
+    const { errors } = validateAndParseCsvRows(
+      [{ ...validRow, steps: "-5" }],
+      new Set(),
+    );
+    expect(
+      errors.some((e) =>
+        e.includes("steps must be a non-negative whole number"),
+      ),
+    ).toBe(true);
   });
 
   it("rejects a non-numeric field", () => {
-    const { errors } = validateAndParseCsvRows([{ ...validRow, moveCalories: "abc" }], new Set());
+    const { errors } = validateAndParseCsvRows(
+      [{ ...validRow, moveCalories: "abc" }],
+      new Set(),
+    );
     expect(errors.some((e) => e.includes("moveCalories"))).toBe(true);
   });
 
   it("rejects readinessScore above 100", () => {
-    const { errors } = validateAndParseCsvRows([{ ...validRow, readinessScore: "150" }], new Set());
-    expect(errors.some((e) => e.includes("readinessScore must be between 0 and 100"))).toBe(true);
+    const { errors } = validateAndParseCsvRows(
+      [{ ...validRow, readinessScore: "150" }],
+      new Set(),
+    );
+    expect(
+      errors.some((e) =>
+        e.includes(
+          "readinessScore must be a non-negative whole number up to 100",
+        ),
+      ),
+    ).toBe(true);
   });
 
   it("rejects a date that already exists in the database", () => {
-    const { errors, parsedMetrics } = validateAndParseCsvRows([validRow], new Set(["2026-01-01"]));
+    const { errors, parsedMetrics } = validateAndParseCsvRows(
+      [validRow],
+      new Set(["2026-01-01"]),
+    );
     expect(errors.some((e) => e.includes("already exists"))).toBe(true);
     expect(parsedMetrics).toHaveLength(0);
   });
 
   it("rejects duplicate dates within the same file", () => {
-    const { errors, parsedMetrics } = validateAndParseCsvRows([validRow, validRow], new Set());
+    const { errors, parsedMetrics } = validateAndParseCsvRows(
+      [validRow, validRow],
+      new Set(),
+    );
     expect(errors.some((e) => e.includes("appears more than once"))).toBe(true);
     expect(parsedMetrics).toHaveLength(1);
   });
@@ -85,5 +154,12 @@ describe("validateAndParseCsvRows", () => {
     );
     expect(errors).toEqual([]);
     expect(parsedMetrics).toHaveLength(2);
+  });
+});
+
+it("rejects more than 5,000 dates before building a preview", () => {
+  expect(validateAndParseCsvRows(Array(5001).fill({}), new Set())).toEqual({
+    errors: ["Split the file into batches of at most 5,000 dates."],
+    parsedMetrics: [],
   });
 });

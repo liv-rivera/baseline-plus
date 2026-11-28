@@ -5,6 +5,7 @@ const getRequestSessionMock = vi.fn();
 const readDailyMetricsMock = vi.fn();
 const readMetricAveragesMock = vi.fn();
 const insertDailyMetricsMock = vi.fn();
+const insertNewDailyMetricsMock = vi.fn();
 
 vi.mock("@/lib/auth-session", () => ({
   getRequestSession: (headers: Headers) => getRequestSessionMock(headers),
@@ -17,6 +18,7 @@ vi.mock("@/lib/metricsRepository", async () => {
     readDailyMetrics: (...args: unknown[]) => readDailyMetricsMock(...args),
     readMetricAverages: (...args: unknown[]) => readMetricAveragesMock(...args),
     insertDailyMetrics: (...args: unknown[]) => insertDailyMetricsMock(...args),
+    insertNewDailyMetrics: (...args: unknown[]) => insertNewDailyMetricsMock(...args),
   };
 });
 
@@ -37,7 +39,7 @@ const validRecord = {
   breathworkSessions: [{ name: "Breathe", durationMinutes: 10 }],
 };
 
-const postRequest = (body: unknown) => new Request("http://localhost/api/metrics", {
+const postRequest = (body: unknown, query = "") => new Request(`http://localhost/api/metrics${query}`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(body),
@@ -48,6 +50,7 @@ beforeEach(() => {
   readDailyMetricsMock.mockReset();
   readMetricAveragesMock.mockReset();
   insertDailyMetricsMock.mockReset();
+  insertNewDailyMetricsMock.mockReset();
 });
 
 describe("GET /api/metrics", () => {
@@ -99,9 +102,27 @@ describe("POST /api/metrics", () => {
     expect(insertDailyMetricsMock).not.toHaveBeenCalled();
   });
 
+  it("requires a new preview if the active account changed", async () => {
+    const request = postRequest([validRecord]);
+    request.headers.set("X-Baseline-Preview-Owner", "other-user");
+    expect((await POST(request)).status).toBe(409);
+    expect(insertDailyMetricsMock).not.toHaveBeenCalled();
+  });
+
   it("returns 400 when the payload is not an array", async () => {
     const response = await POST(postRequest({ not: "an array" }));
     expect(response.status).toBe(400);
+  });
+
+  it("limits the number of individual activities per metric per day", async () => {
+    expect((await POST(postRequest([{ ...validRecord, activities: Array(501).fill(validRecord.activities[0]) }]))).status).toBe(400);
+    expect(insertDailyMetricsMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized imports even without a content-length header", async () => {
+    const request = postRequest("a".repeat(5 * 1024 * 1024));
+    expect((await POST(request)).status).toBe(413);
+    expect(insertDailyMetricsMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 when the payload is empty", async () => {
@@ -117,6 +138,12 @@ describe("POST /api/metrics", () => {
   it("returns 400 for an impossible calendar date", async () => {
     const response = await POST(postRequest([{ ...validRecord, date: "2026-02-30" }]));
     expect(response.status).toBe(400);
+  });
+
+  it("accepts a summary without events or an external score", async () => {
+    const summary = { ...validRecord, readinessScore: undefined, activities: [], stepActivities: [], restPeriods: [], breathworkSessions: [] };
+    expect((await POST(postRequest([summary]))).status).toBe(201);
+    expect(insertDailyMetricsMock).toHaveBeenCalledWith("user-1", [expect.objectContaining({ steps: 1000, readinessScore: null, activities: [] })]);
   });
 
   it("returns 400 when readinessScore is out of bounds", async () => {
@@ -158,5 +185,59 @@ describe("POST /api/metrics", () => {
     insertDailyMetricsMock.mockRejectedValueOnce(new Error("connection reset"));
     const response = await POST(postRequest([validRecord]));
     expect(response.status).toBe(503);
+  });
+
+  describe("Apple Health days", () => {
+    const appleHealthDay = {
+      date: "2026-11-03",
+      source: "apple_health",
+      steps: 2100,
+      moveCalories: 29,
+      restMinutes: null,
+      breatheMinutes: null,
+      readinessScore: null,
+      activities: [],
+      stepActivities: [],
+      restPeriods: [],
+      breathworkSessions: [],
+    };
+
+    it("keeps blank totals and the source label", async () => {
+      insertDailyMetricsMock.mockResolvedValueOnce(1);
+      expect((await POST(postRequest([appleHealthDay]))).status).toBe(201);
+      expect(insertDailyMetricsMock).toHaveBeenCalledWith("user-1", [
+        expect.objectContaining({ source: "apple_health", steps: 2100, restMinutes: null, breatheMinutes: null }),
+      ]);
+    });
+
+    it("skips days already saved when asked, and says which", async () => {
+      insertNewDailyMetricsMock.mockResolvedValueOnce({ inserted: 0, skippedDates: ["2026-11-03"] });
+      const response = await POST(postRequest([appleHealthDay], "?existing=skip"));
+      expect(response.status).toBe(201);
+      await expect(response.json()).resolves.toEqual({ inserted: 0, skipped: ["2026-11-03"] });
+      expect(insertDailyMetricsMock).not.toHaveBeenCalled();
+    });
+
+    it("still requires every total on CSV rows", async () => {
+      const response = await POST(postRequest([{ ...validRecord, restMinutes: null }]));
+      expect(response.status).toBe(400);
+    });
+
+    it("rejects a day with no totals at all", async () => {
+      const empty = { ...appleHealthDay, steps: null, moveCalories: null };
+      const response = await POST(postRequest([empty]));
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toEqual({ error: "2026-11-03 needs at least one daily total." });
+    });
+
+    it("rejects a contribution list for a blank total", async () => {
+      const response = await POST(postRequest([{ ...appleHealthDay, restPeriods: [{ name: "Nap", durationMinutes: 20 }] }]));
+      expect(response.status).toBe(400);
+    });
+
+    it("rejects unknown sources", async () => {
+      const response = await POST(postRequest([{ ...appleHealthDay, source: "garmin" }]));
+      expect(response.status).toBe(400);
+    });
   });
 });

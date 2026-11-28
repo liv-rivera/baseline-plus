@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { DatabaseConfigurationError } from "@/lib/database";
 import { getRequestSession } from "@/lib/auth-session";
-import { DuplicateMetricDateError, insertDailyMetrics, readDailyMetrics, readMetricAverages } from "@/lib/metricsRepository";
+import { DuplicateMetricDateError, insertDailyMetrics, insertNewDailyMetrics, readDailyMetrics, readMetricAverages } from "@/lib/metricsRepository";
 import type { DailyMetrics } from "@/types/metrics";
 
 export const runtime = "nodejs";
@@ -17,7 +17,7 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const isNonNegativeInteger = (value: unknown): value is number =>
-  Number.isSafeInteger(value) && Number(value) >= 0;
+  Number.isSafeInteger(value) && Number(value) >= 0 && Number(value) <= 2147483647;
 
 const parseEntries = (
   value: unknown,
@@ -26,6 +26,8 @@ const parseEntries = (
   if (!Array.isArray(value)) {
     throw new MetricsPayloadError("Metric contribution lists must be arrays.");
   }
+
+  if (value.length > 500) throw new MetricsPayloadError("Each daily contribution list supports up to 500 entries.");
 
   return value.map((entry) => {
     if (!isObject(entry)) {
@@ -67,7 +69,7 @@ const parseMetricBatch = (payload: unknown): DailyMetrics[] => {
 
     const date = typeof item.date === "string" ? item.date : "";
     const parsedDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T00:00:00.000Z`) : null;
-    if (!parsedDate || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) {
+    if (date.startsWith("0000") || !parsedDate || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) {
       throw new MetricsPayloadError("Dates must be real calendar dates in YYYY-MM-DD format.");
     }
     if (dates.has(date)) {
@@ -75,13 +77,27 @@ const parseMetricBatch = (payload: unknown): DailyMetrics[] => {
     }
     dates.add(date);
 
+    if (item.source !== undefined && item.source !== "import" && item.source !== "apple_health") {
+      throw new MetricsPayloadError("source must be import or apple_health.");
+    }
+    const source = item.source === "apple_health" ? "apple_health" : "import";
+
+    // Apple Health days can be missing a total (no sleep data, say). CSV rows can't.
     const metricFields = ["steps", "moveCalories", "restMinutes", "breatheMinutes"] as const;
     for (const field of metricFields) {
+      if (source === "apple_health" && item[field] === null) continue;
       if (!isNonNegativeInteger(item[field])) {
         throw new MetricsPayloadError(`${field} must be a non-negative whole number.`);
       }
     }
-    if (!isNonNegativeInteger(item.readinessScore) || item.readinessScore > 100) {
+    if (metricFields.every((field) => item[field] === null)) {
+      throw new MetricsPayloadError(`${date} needs at least one daily total.`);
+    }
+    if (Number(item.restMinutes) > 1440 || Number(item.breatheMinutes) > 1440) {
+      throw new MetricsPayloadError("Daily minutes must be between 0 and 1440.");
+    }
+    const score = item.readinessScore ?? null;
+    if (score !== null && (!isNonNegativeInteger(score) || score > 100)) {
       throw new MetricsPayloadError("readinessScore must be a whole number between 0 and 100.");
     }
 
@@ -99,23 +115,23 @@ const parseMetricBatch = (payload: unknown): DailyMetrics[] => {
     }));
 
     const contributionTotals = [
-      [activities.reduce((total, entry) => total + entry.calories, 0), item.moveCalories],
-      [stepActivities.reduce((total, entry) => total + entry.steps, 0), item.steps],
-      [restPeriods.reduce((total, entry) => total + entry.durationMinutes, 0), item.restMinutes],
-      [breathworkSessions.reduce((total, entry) => total + entry.durationMinutes, 0), item.breatheMinutes],
+      [activities.length, activities.reduce((total, entry) => total + entry.calories, 0), item.moveCalories],
+      [stepActivities.length, stepActivities.reduce((total, entry) => total + entry.steps, 0), item.steps],
+      [restPeriods.length, restPeriods.reduce((total, entry) => total + entry.durationMinutes, 0), item.restMinutes],
+      [breathworkSessions.length, breathworkSessions.reduce((total, entry) => total + entry.durationMinutes, 0), item.breatheMinutes],
     ];
-    if (contributionTotals.some(([contributionTotal, dailyTotal]) => contributionTotal !== dailyTotal)) {
+    if (contributionTotals.some(([count, contributionTotal, dailyTotal]) => count !== 0 && contributionTotal !== dailyTotal)) {
       throw new MetricsPayloadError("Each contribution list must sum exactly to its daily metric total.");
     }
 
     return {
       date,
-      source: "import",
-      steps: item.steps as number,
-      moveCalories: item.moveCalories as number,
-      restMinutes: item.restMinutes as number,
-      breatheMinutes: item.breatheMinutes as number,
-      readinessScore: item.readinessScore as number,
+      source,
+      steps: item.steps as number | null,
+      moveCalories: item.moveCalories as number | null,
+      restMinutes: item.restMinutes as number | null,
+      breatheMinutes: item.breatheMinutes as number | null,
+      readinessScore: score,
       activities,
       stepActivities,
       restPeriods,
@@ -125,7 +141,7 @@ const parseMetricBatch = (payload: unknown): DailyMetrics[] => {
 };
 
 const databaseUnavailableResponse = () => NextResponse.json(
-  { error: "PostgreSQL is not configured or reachable. Check DATABASE_URL and the database migrations." },
+  { error: "Your records are temporarily unavailable. Please try again." },
   { status: 503 },
 );
 
@@ -148,7 +164,7 @@ export async function GET(request: Request) {
     if (error instanceof DatabaseConfigurationError) {
       return databaseUnavailableResponse();
     }
-    console.error("Unable to read daily metrics from PostgreSQL.", error);
+    console.error("Unable to read daily metrics from PostgreSQL.");
     return databaseUnavailableResponse();
   }
 }
@@ -157,23 +173,54 @@ export async function POST(request: Request) {
   let session;
   try {
     session = await getRequestSession(request.headers);
-  } catch (error) {
-    console.error("Unable to validate the metrics API session.", error);
+  } catch {
+    console.error("Unable to validate the metrics API session.");
     return databaseUnavailableResponse();
   }
   if (!session) {
     return unauthorizedResponse();
   }
 
+  const previewOwner = request.headers.get("X-Baseline-Preview-Owner");
+  if (previewOwner !== null && previewOwner !== session.user.id) {
+    return NextResponse.json({ error: "Your account changed. Preview the records again." }, { status: 409 });
+  }
   let metrics: DailyMetrics[];
   try {
-    metrics = parseMetricBatch(await request.json());
+    const limit = 5 * 1024 * 1024;
+    const tooLarge = () => NextResponse.json({ error: "Split the import into batches smaller than 5 MiB." }, { status: 413 });
+    if (Number(request.headers.get("content-length")) > limit) return tooLarge();
+    const reader = request.body?.getReader();
+    if (!reader) throw new MetricsPayloadError("The import is empty.");
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > limit) {
+          await reader.cancel();
+          return tooLarge();
+        }
+        chunks.push(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    metrics = parseMetricBatch(JSON.parse(Buffer.concat(chunks).toString("utf8")));
   } catch (error) {
-    const message = error instanceof Error ? error.message : "The import payload is invalid.";
+    const message = error instanceof MetricsPayloadError ? error.message : "The import payload is invalid.";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
   try {
+    // ?existing=skip keeps days already saved and reports them, instead of
+    // rejecting the whole import.
+    if (new URL(request.url).searchParams.get("existing") === "skip") {
+      const { inserted, skippedDates } = await insertNewDailyMetrics(session.user.id, metrics);
+      return NextResponse.json({ inserted, skipped: skippedDates }, { status: 201 });
+    }
     const inserted = await insertDailyMetrics(session.user.id, metrics);
     return NextResponse.json({ inserted }, { status: 201 });
   } catch (error) {
@@ -183,7 +230,7 @@ export async function POST(request: Request) {
     if (error instanceof DatabaseConfigurationError) {
       return databaseUnavailableResponse();
     }
-    console.error("Unable to import daily metrics into PostgreSQL.", error);
+    console.error("Unable to import daily metrics into PostgreSQL.");
     return databaseUnavailableResponse();
   }
 }

@@ -5,10 +5,10 @@
   width: 40px;
   height: 40px;
   place-items: center;
-  border: 1px solid #c6d5cc;
+  border: 1px solid var(--line-strong);
   border-radius: 50%;
   background: #ffffff;
-  color: #28594e;
+  color: var(--accent);
   cursor: pointer;
   transition: background-color 150ms ease, border-color 150ms ease;
 }
@@ -16,7 +16,7 @@
 .accountButton:hover,
 .closeButton:hover {
   border-color: #9db4a8;
-  background: #e7efe9;
+  background: var(--surface-muted);
 }
 
 .accountButton:focus-visible,
@@ -25,7 +25,7 @@
 .activeTab:focus-visible,
 .secondaryButton:focus-visible,
 .primaryButton:focus-visible {
-  outline: 3px solid #d57b58;
+  outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
 
@@ -44,11 +44,11 @@
   width: min(100%, 460px);
   max-height: min(720px, calc(100vh - 108px));
   overflow-y: auto;
-  border: 1px solid #d8e1dc;
-  border-radius: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   background: #ffffff;
   box-shadow: 0 18px 55px rgba(17, 39, 32, 0.2);
-  color: #18352e;
+  color: var(--ink);
 }
 
 .dialogHeader {
@@ -72,12 +72,12 @@
   flex: 0 0 auto;
   place-items: center;
   border-radius: 50%;
-  background: #e7efe9;
-  color: #28594e;
+  background: var(--surface-muted);
+  color: var(--accent);
 }
 
 .eyebrow {
-  color: #687a73;
+  color: var(--muted);
   font-size: 10px;
   font-weight: 700;
   line-height: 1.4;
@@ -101,8 +101,8 @@
   gap: 4px;
   margin: 0 22px;
   padding: 4px;
-  border-radius: 4px;
-  background: #f1f5f2;
+  border-radius: var(--radius);
+  background: var(--bg);
 }
 
 .tab,
@@ -115,7 +115,7 @@
   border: 0;
   border-radius: 3px;
   background: transparent;
-  color: #687a73;
+  color: var(--muted);
   cursor: pointer;
   font: inherit;
   font-size: 13px;
@@ -124,7 +124,7 @@
 
 .activeTab {
   background: #ffffff;
-  color: #18352e;
+  color: var(--ink);
   box-shadow: 0 1px 3px rgba(24, 53, 46, 0.12);
 }
 
@@ -142,19 +142,19 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  border-bottom: 1px solid #e7ede9;
+  border-bottom: 1px solid var(--line);
   font-size: 13px;
 }
 
 .detailRow dt {
-  color: #687a73;
+  color: var(--muted);
 }
 
 .detailRow dd {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #18352e;
+  color: var(--ink);
   font-weight: 500;
   text-align: right;
 }
@@ -163,7 +163,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #d57b58;
+  background: var(--focus);
 }
 
 .actionRow {
@@ -183,7 +183,7 @@
 .actionRow p,
 .subscriptionAction p {
   margin-top: 5px;
-  color: #687a73;
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -193,10 +193,10 @@
   min-height: 38px;
   flex: 0 0 auto;
   padding: 0 12px;
-  border: 1px solid #c6d5cc;
-  border-radius: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
   background: #ffffff;
-  color: #28594e;
+  color: var(--accent);
   cursor: pointer;
   font: inherit;
   font-size: 12px;
@@ -204,7 +204,7 @@
 }
 
 .secondaryButton:hover {
-  background: #f1f5f2;
+  background: var(--bg);
 }
 
 .planSummary {
@@ -213,8 +213,8 @@
   justify-content: space-between;
   gap: 12px;
   padding: 14px;
-  border: 1px solid #d8e1dc;
-  border-radius: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   background: #f8faf8;
 }
 
@@ -226,8 +226,8 @@
 .planBadge {
   padding: 5px 8px;
   border-radius: 3px;
-  background: #e7efe9;
-  color: #28594e;
+  background: var(--surface-muted);
+  color: var(--accent);
   font-size: 10px;
   font-weight: 700;
 }
@@ -243,19 +243,19 @@
 .primaryButton {
   width: 100%;
   margin-top: 12px;
-  border-color: #173d36;
-  background: #173d36;
+  border-color: var(--brand);
+  background: var(--brand);
   color: #f6faf7;
 }
 
 .primaryButton:hover {
-  background: #28594e;
+  background: var(--accent);
 }
 
 .notice {
   margin: 0 22px 20px;
   padding: 10px 12px;
-  border-left: 3px solid #d57b58;
+  border-left: 3px solid var(--focus);
   background: #fff7f2;
   color: #704b3b;
   font-size: 12px;

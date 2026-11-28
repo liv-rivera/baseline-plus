@@ -67,15 +67,10 @@ describe("UserDetailsPopup", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("switches between account and subscription tabs", async () => {
-    const user = userEvent.setup();
+  it("opens account settings from the profile", async () => {
     render(<UserDetailsPopup />);
-    await user.click(screen.getByRole("button", { name: "Open account details" }));
-
-    expect(screen.getByRole("tab", { name: /account/i })).toHaveAttribute("aria-selected", "true");
-    await user.click(screen.getByRole("tab", { name: /subscription/i }));
-    expect(screen.getByRole("tab", { name: /subscription/i })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("Free preview")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", {name:"Open account details"}));
+    expect(screen.getByRole("link", {name:"Manage sign-in methods"})).toHaveAttribute("href","/home/settings");
   });
 
   it("shows the signed-in profile and signs out", async () => {

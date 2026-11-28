@@ -1,0 +1,116 @@
+.guide {
+  margin-top: 20px;
+}
+
+.guideTitle {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 14px;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.step h4 {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.step p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.step .stepNumber {
+  margin-top: 6px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.drawingFrame {
+  display: flex;
+  justify-content: center;
+  padding: 12px 8px 4px;
+  border-radius: var(--radius-small);
+  background: var(--surface-muted);
+}
+
+.drawing {
+  width: 100%;
+  max-width: 150px;
+  height: auto;
+}
+
+.note {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Drawing parts */
+.phoneBody { fill: var(--ink); }
+.screen { fill: var(--surface); }
+.notch { fill: var(--ink); }
+.card { fill: var(--surface-muted); stroke: var(--line); }
+.line { fill: var(--line-strong); }
+.lineMuted { fill: var(--line); }
+.title { fill: var(--ink); font-family: var(--font-display); font-size: 14px; font-weight: 600; }
+.target { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+.targetInk { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.ring, .ringWide { fill: none; stroke: var(--focus); stroke-width: 2; stroke-dasharray: 4 3; }
+.ringWide { display: none; }
+.highlight { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+.action { fill: var(--accent); font-size: 8.5px; font-weight: 600; }
+.dim { fill: var(--ink); opacity: 0.25; }
+.dialog { fill: var(--surface); }
+.dialogTitle { fill: var(--ink); font-size: 8.5px; font-weight: 600; }
+.dialogMuted { fill: var(--muted); font-size: 8.5px; }
+.divider { stroke: var(--line-strong); stroke-width: 1; }
+.folder { fill: #8fb9e8; stroke: #2f6fdb; stroke-width: 1.2; }
+.caption { fill: var(--ink); font-size: 8px; font-weight: 600; }
+.file { fill: var(--ink); font-family: var(--font-geist-mono), monospace; font-size: 9px; }
+.arrow { fill: none; stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+@media (max-width: 900px) {
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .steps {
+    grid-template-columns: 1fr;
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 96px 1fr;
+    column-gap: 14px;
+    align-items: start;
+  }
+
+  .drawingFrame {
+    grid-row: span 3;
+  }
+
+  .step .stepNumber {
+    margin-top: 0;
+  }
+}

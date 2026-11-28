@@ -2,12 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import styles from "./AuthForm.module.css";
 
 type AuthMode = "sign-in" | "sign-up";
 
-export function AuthForm() {
+export function AuthForm({ googleEnabled = false }: { googleEnabled?: boolean } = {}) {
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [name, setName] = useState("");
@@ -88,7 +89,7 @@ export function AuthForm() {
         <h2 id="auth-title">{mode === "sign-in" ? "Log in to Baseline" : "Create your account"}</h2>
       </div>
 
-      <form
+      <form method="post"
         className={styles.form}
         aria-label={mode === "sign-in" ? "Log in form" : "Create account form"}
         onSubmit={submit}
@@ -139,6 +140,17 @@ export function AuthForm() {
           {pending ? "Please wait..." : mode === "sign-in" ? "Log in" : "Create account"}
         </button>
       </form>
+
+      {googleEnabled && mode === "sign-in" && <button className={styles.mode} type="button" disabled={pending} onClick={async () => {
+        setPending(true);
+        try {
+          const result = await authClient.signIn.social({provider:"google",callbackURL:"/home",errorCallbackURL:"/?google=failed"});
+          if (result.error) setError("Google sign-in could not finish. Use your password and check Settings.");
+        } catch { setError("Google sign-in is unavailable. Try your password."); }
+        finally { setPending(false); }
+      }}>Continue with Google</button>}
+      <p><Link href="/recover?action=verify">Resend verification email</Link></p>
+      {mode === "sign-in" && <Link href="/recover">Forgot password?</Link>}
 
       <p className={styles.switchPrompt}>
         {mode === "sign-in" ? "New to Baseline?" : "Already have an account?"}{" "}

@@ -4,7 +4,7 @@ type ReadinessGaugeProps = {
 
 export const ReadinessGauge = ({score}: ReadinessGaugeProps) => {
   return (
-    <svg 
+    <svg role="img" aria-label={`Readiness score: ${score} out of 100`}
       fill="none"
       strokeWidth="14"
       strokeLinecap="round"
@@ -15,14 +15,14 @@ export const ReadinessGauge = ({score}: ReadinessGaugeProps) => {
         fill="none"
         strokeWidth="14"
         strokeLinecap="round"
-        stroke="white"/>
+        style={{ stroke: "var(--line)" }}/>
       
       <path 
         d="M 20 100 A 80 80 0 0 1 180 100" 
         fill="none"
         strokeWidth="14"
         strokeLinecap="round"
-        stroke="lightblue"
+        style={{ stroke: "var(--accent)" }}
         pathLength="100"
         strokeDasharray={score + " 100"}/>    
 
@@ -32,7 +32,8 @@ export const ReadinessGauge = ({score}: ReadinessGaugeProps) => {
         textAnchor="middle"
         fill="currentColor"
         fontSize="30"
-        fontWeight="600"
+        fontWeight="700"
+        fontFamily="var(--font-display)"
       >
         {score}
       </text>

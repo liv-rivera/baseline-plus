@@ -1,0 +1,203 @@
+/* Shared by the journal and settings pages. Styles plain elements so the
+   server-rendered forms stay simple. */
+.page {
+  display: grid;
+  width: min(100%, 760px);
+  gap: 14px;
+  margin: 0 auto;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.page > a:first-child {
+  justify-self: start;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.page h1 {
+  font-size: clamp(26px, 3vw, 34px);
+  font-weight: 700;
+}
+
+.page h2 {
+  margin-top: 14px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.page > p,
+.page section > p {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.page a:not(.button):not(.button-secondary) {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.page a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.page > form,
+.form,
+.page details,
+.danger details,
+.page section {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.page > form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.form {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  align-items: end;
+}
+
+.page label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.page label:has(input[type="checkbox"]) {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.form label:has(textarea) {
+  grid-column: 1 / -1;
+}
+
+.page input:not([type="checkbox"]):not([type="hidden"]),
+.page select,
+.page textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.page textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.page input:focus-visible,
+.page select:focus-visible,
+.page textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.page button {
+  justify-self: start;
+  min-height: 40px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.page button:hover {
+  background: var(--accent-hover);
+}
+
+.page button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.form button {
+  grid-column: 1 / -1;
+}
+
+.form [role="status"] {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.form [role="status"]:empty {
+  display: none;
+}
+
+.page details > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.page details > form,
+.page section form {
+  display: grid;
+  gap: 12px;
+}
+
+.page ul {
+  display: grid;
+  list-style: none;
+  font-size: 14px;
+}
+
+.page li {
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+
+.page li:first-child {
+  border-top: 0;
+}
+
+.page [role="alert"] {
+  padding: 10px 14px;
+  border-radius: var(--radius-small);
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 14px;
+}
+
+.page section h2 {
+  margin-top: 0;
+}
+
+.page section details {
+  padding: 12px 14px;
+  background: var(--surface-muted);
+}
+
+.form:has(input[name="confirm"][type="checkbox"]) button,
+.danger button {
+  background: var(--warn);
+}
+
+.form:has(input[name="confirm"][type="checkbox"]) button:hover,
+.danger button:hover {
+  background: #93351f;
+}
