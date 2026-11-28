@@ -51,7 +51,9 @@ export function TrainingChart({ days }: { days: TrainingDay[] }) {
         <svg width="100%" height={HEIGHT} className={styles.chartSvg} role="img" aria-label={`Training minutes by sport and readiness. ${summary}.`}>
           {days.map((day, i) =>
             day.lowEnergy ? (
-              <rect key={`low-${day.date}`} x={MARGIN.left + i * slot} y={MARGIN.top} width={slot + 0.5} height={innerHeight} fill="var(--warn-soft)" />
+              <rect key={`low-${day.date}`} x={MARGIN.left + i * slot} y={MARGIN.top} width={slot + 0.5} height={innerHeight} fill="var(--warn-soft)">
+                <title>{`${shortDate(day.date)}: ${day.checkIn}`}</title>
+              </rect>
             ) : null,
           )}
           {ticks.map((tick) => (
@@ -78,7 +80,7 @@ export function TrainingChart({ days }: { days: TrainingDay[] }) {
                   rx={Math.min(3, slot * 0.2)}
                   fill={`var(--sport-${session.sport})`}
                 >
-                  <title>{`${shortDate(day.date)}: ${session.name}, ${session.minutes} min`}</title>
+                  <title>{`${shortDate(day.date)}: ${session.name}, ${session.minutes} min${day.checkIn ? `. Check-in: ${day.checkIn}` : ""}`}</title>
                 </rect>
               );
             });

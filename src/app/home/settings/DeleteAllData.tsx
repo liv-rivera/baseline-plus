@@ -25,8 +25,8 @@ export function DeleteAllData({ owner }: { owner: string }) {
       <h2>Delete all data</h2>
       <p>
         Clear every saved day, activity, import and check-in but keep your
-        account and sign-in methods. Useful for starting over after a test
-        import.
+        account, sign-in methods and check-in fields. Useful for starting over
+        after a test import.
       </p>
       <button type="button" className={styles.trigger} onClick={open}>
         Delete all data

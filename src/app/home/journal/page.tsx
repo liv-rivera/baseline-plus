@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getRequestSession } from "@/lib/auth-session";
 import { readDay, recentCheckIns, validDay } from "@/lib/journal";
+import { checkInLine } from "@/lib/dashboardStats";
 import { listCheckInFields, readCheckIn, recentCheckInTags } from "@/lib/checkIns";
 import { CheckInForm } from "./CheckInForm";
 import { DayForm } from "./DayForm";
@@ -17,9 +18,9 @@ export default async function Journal({
   if (!session) redirect("/");
   const date = (await searchParams).date ?? "";
   const selected = validDay(date);
-  const { metric } = selected
+  const { metric, activities } = selected
     ? await readDay(session.user.id, date)
-    : { metric: undefined };
+    : { metric: undefined, activities: [] };
   const recent = await recentCheckIns(session.user.id);
   const [fields, saved, tags] = selected
     ? await Promise.all([
@@ -78,6 +79,18 @@ export default async function Journal({
               ))}
             </DayForm>
           )}
+          {activities.length > 0 && (
+            <>
+              <h3>Activities</h3>
+              <ul className={styles.activities}>
+                {activities.map((activity, i) => (
+                  <li key={i}>
+                    {activity.name} · {activity.minutes} min · {activity.calories} kcal
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
           {metric && (
             <DayForm
               {...props}
@@ -107,9 +120,8 @@ export default async function Journal({
           <ul>
             {recent.map((c) => (
               <li key={c.date}>
-                <Link href={`/home/journal?date=${c.date}`}>{c.date}</Link> ·
-                Energy {c.energy ?? "skipped"} · Soreness{" "}
-                {c.soreness ?? "skipped"}
+                <Link href={`/home/journal?date=${c.date}`}>{c.date}</Link> ·{" "}
+                {checkInLine(c.checkIn) ?? "Notes only"}
               </li>
             ))}
           </ul>

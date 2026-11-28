@@ -1,4 +1,4 @@
-import type { DailyMetrics } from "@/types/metrics";
+import type { CheckInSymptom, DailyMetrics, DayCheckIn } from "@/types/metrics";
 
 export type MetricKey = "steps" | "moveCalories" | "restMinutes" | "breatheMinutes" | "readinessScore";
 export type Sport = "run" | "ride" | "swim" | "yoga" | "strength";
@@ -77,7 +77,33 @@ export type TrainingDay = {
   sessions: TrainingSession[];
   readiness: number | null;
   lowEnergy: boolean;
+  /** The day's check-in in one line, or null when there wasn't one. */
+  checkIn: string | null;
 };
+
+/** One answer in a few words: "Dizziness 4/5", "Flare today: yes", "Fluids 2.5 L". */
+export function symptomText(symptom: CheckInSymptom): string {
+  if (symptom.kind === "score") return `${symptom.label} ${symptom.value}/5`;
+  if (symptom.kind === "yes_no") return `${symptom.label}: ${symptom.value ? "yes" : "no"}`;
+  return `${symptom.label} ${symptom.value.toLocaleString("en-US")}${symptom.unit ? ` ${symptom.unit}` : ""}`;
+}
+
+/**
+ * A check-in as one line. With scoresOnly, yes/no and number answers and the "/5" are left
+ * out so the line stays short next to a workout. Returns null when nothing was recorded.
+ */
+export function checkInLine(checkIn: DayCheckIn | undefined, { scoresOnly = false } = {}): string | null {
+  if (!checkIn) return null;
+  const out = scoresOnly ? "" : "/5";
+  const parts = [
+    checkIn.energy !== null ? `Energy ${checkIn.energy}${out}` : null,
+    checkIn.soreness !== null ? `Soreness ${checkIn.soreness}${out}` : null,
+    ...(checkIn.symptoms ?? [])
+      .filter((s) => !scoresOnly || s.kind === "score")
+      .map((s) => (scoresOnly ? `${s.label} ${s.value}` : symptomText(s))),
+  ].filter((part): part is string => part !== null);
+  return parts.length ? parts.join(" · ") : null;
+}
 
 /** Each calendar day in the window with its sport sessions, readiness and whether energy was checked in as low. */
 export function trainingDays(rows: DailyMetrics[], latest: DailyMetrics, days: number): TrainingDay[] {
@@ -93,7 +119,13 @@ export function trainingDays(rows: DailyMetrics[], latest: DailyMetrics, days: n
       return sport ? [{ sport, name: activity.name, minutes: activity.durationMinutes }] : [];
     });
     const energy = row?.checkIn?.energy ?? null;
-    return { date, sessions, readiness: row?.readinessScore ?? null, lowEnergy: energy !== null && energy <= 2 };
+    return {
+      date,
+      sessions,
+      readiness: row?.readinessScore ?? null,
+      lowEnergy: energy !== null && energy <= 2,
+      checkIn: checkInLine(row?.checkIn),
+    };
   });
 }
 
@@ -104,7 +136,10 @@ export function recentSessions(rows: DailyMetrics[], limit = 6) {
     .flatMap((row) =>
       row.activities.flatMap((activity) => {
         const sport = sportOf(activity.name);
-        return sport ? [{ date: row.date, sport, name: activity.name, minutes: activity.durationMinutes, calories: activity.calories }] : [];
+        const checkIn = checkInLine(row.checkIn, { scoresOnly: true });
+        return sport
+          ? [{ date: row.date, sport, name: activity.name, minutes: activity.durationMinutes, calories: activity.calories, ...(checkIn && { checkIn }) }]
+          : [];
       }),
     )
     .slice(0, limit);

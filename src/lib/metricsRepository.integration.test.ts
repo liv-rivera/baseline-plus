@@ -120,10 +120,13 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
     const leftovers = await pool.query(
       `SELECT (SELECT count(*) FROM daily_check_ins WHERE user_id=$1)::int AS check_ins,
               (SELECT count(*) FROM metric_contributions c JOIN daily_metrics m ON m.id=c.daily_metric_id WHERE m.user_id=$1)::int AS contributions,
+              (SELECT count(*) FROM check_in_answers WHERE user_id=$1)::int AS answers,
+              (SELECT count(*) FROM check_in_fields WHERE user_id=$1)::int AS fields,
               (SELECT count(*) FROM users WHERE id=$1)::int AS account`,
       [userId],
     );
-    expect(leftovers.rows[0]).toEqual({ check_ins: 0, contributions: 0, account: 1 });
+    // The check-in setup (which fields to ask) stays, like the account; the answers go.
+    expect(leftovers.rows[0]).toEqual({ check_ins: 0, contributions: 0, answers: 0, fields: 3, account: 1 });
     expect(await readDailyMetrics(otherUser)).toHaveLength(1);
   });
 
@@ -433,7 +436,16 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
           ]),
         },
       ],
-      check_ins: [{ date, note: "Owned fixture" }],
+      check_ins: [
+        {
+          date,
+          note: "Owned fixture",
+          answers: [expect.objectContaining({ field: "Notes", note: "Owned fixture" })],
+        },
+      ],
+      check_in_fields: expect.arrayContaining([
+        expect.objectContaining({ label: "Energy", kind: "score", hidden: false, score_labels: expect.any(Array) }),
+      ]),
     });
     expect(
       (await call("unlink-account", { accountId: "other" }, { cookie })).status,
@@ -589,6 +601,8 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
       "user_sessions",
       "user_accounts",
       "daily_check_ins",
+      "check_in_answers",
+      "check_in_fields",
       "daily_metrics",
     ]) {
       expect(
@@ -977,6 +991,55 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
       expect(await clearCheckIn(userId, "2026-11-21", other!.revision)).toBe(true);
       const { rows } = await pool.query("SELECT count(*)::int AS n FROM check_in_answers WHERE user_id=$1", [userId]);
       expect(rows[0].n).toBe(0);
+    });
+
+    it("reads each day's symptoms with its metrics and workouts, by the same local date", async () => {
+      const { addCheckInField, listCheckInFields, saveCheckIn, setCheckInFieldRetired } = await import("./checkIns");
+      const { insertDailyMetrics, readDailyMetrics } = await import("./metricsRepository");
+      const { readDay } = await import("./journal");
+      const dizziness = await addCheckInField(userId, { label: "Dizziness", kind: "score" });
+      const fluids = await addCheckInField(userId, { label: "Fluids", kind: "number", unit: "L" });
+      const flare = await addCheckInField(userId, { label: "Flare today", kind: "yes_no" });
+      if (!dizziness.ok || !fluids.ok || !flare.ok) throw new Error("field setup failed");
+      const fields = await listCheckInFields(userId);
+      const energy = fields.find((f) => f.systemKey === "energy")!;
+      const notes = fields.find((f) => f.systemKey === "notes")!;
+
+      await insertDailyMetrics(userId, [
+        makeMetric(day, { activities: [{ id: "a1", name: "Easy ride", durationMinutes: 40, calories: 200 }] }),
+        makeMetric("2026-11-21"),
+      ]);
+      const saved = await saveCheckIn(userId, day, {
+        [energy.id]: "2",
+        [dizziness.field.id]: "4",
+        [fluids.field.id]: "2.25",
+        [flare.field.id]: "yes",
+        [notes.id]: { tags: ["heat"], note: "" },
+      });
+      if (!saved.ok) throw new Error(saved.message);
+      // A hidden field's answers still belong to the day.
+      await setCheckInFieldRetired(userId, flare.field.id, true);
+
+      const [withCheckIn, without] = await readDailyMetrics(userId);
+      expect(withCheckIn.checkIn).toEqual({
+        energy: 2,
+        soreness: null,
+        symptoms: [
+          { label: "Dizziness", kind: "score", value: 4, unit: null },
+          { label: "Fluids", kind: "number", value: 2.25, unit: "L" },
+          { label: "Flare today", kind: "yes_no", value: true, unit: null },
+        ],
+        tags: ["heat"],
+      });
+      expect(withCheckIn.activities).toEqual([expect.objectContaining({ name: "Easy ride", durationMinutes: 40 })]);
+      // A day with metrics but no check-in, and a check-in with no metrics, both still read.
+      expect(without.checkIn).toBeUndefined();
+      await saveCheckIn(userId, "2026-11-22", { [energy.id]: "4" });
+      expect(await readDailyMetrics(userId)).toHaveLength(2);
+      expect((await readDay(userId, day)).activities).toEqual([{ name: "Easy ride", minutes: 40, calories: 200 }]);
+      expect((await readDay(userId, "2026-11-22")).activities).toEqual([]);
+      // Nothing leaks to another account on the same date.
+      expect((await readDailyMetrics(legacyUser)).find((m) => m.date === day)?.checkIn?.symptoms ?? []).toEqual([]);
     });
 
     it("defaults the check-in time to evening and removes everything with the account", async () => {
