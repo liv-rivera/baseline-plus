@@ -18,38 +18,37 @@ export function sortMetrics(values: DailyMetrics[]) {
     return values
 }
 
+type MetricKey = "steps" | "moveCalories" | "restMinutes" | "breatheMinutes";
+
+// Compares the two most recent days that recorded each metric, so a day with
+// steps but no sleep data doesn't wipe out the rest trend.
 export function calculateTrend(values: DailyMetrics[]): Trends {
     const sortedValues = sortMetrics([...values]);
-    const previousIndex = sortedValues.length - 2;
-
-    if (previousIndex < 0) {
-        return {
-            steps: null,
-            moveCalories: null,
-            restMinutes: null,
-            breatheMinutes: null,
-        };
-    }
-
-    const previous = sortedValues[previousIndex];
-    const latest = sortedValues[sortedValues.length - 1];
+    const trendFor = (key: MetricKey) => {
+        const observed = sortedValues.flatMap((record) => record[key] === null ? [] : [record[key]]);
+        return observed.length < 2 ? null : observed[observed.length - 1] - observed[observed.length - 2];
+    };
 
     return {
-        steps: latest.steps - previous.steps,
-        moveCalories: latest.moveCalories - previous.moveCalories,
-        restMinutes: latest.restMinutes - previous.restMinutes,
-        breatheMinutes: latest.breatheMinutes - previous.breatheMinutes,
+        steps: trendFor("steps"),
+        moveCalories: trendFor("moveCalories"),
+        restMinutes: trendFor("restMinutes"),
+        breatheMinutes: trendFor("breatheMinutes"),
     };
 }
 
 export function calculateChange(trend: Averages, today: DailyMetrics) {
+    const changeFor = (key: MetricKey) => {
+        const value = today[key];
+        return value === null ? null : Math.floor(value - trend[key]);
+    };
 
     // Calculate and format changes based on today and trends
     const result: Changes = {
-        steps : Math.floor(today.steps - trend.steps), 
-        moveCalories :  Math.floor(today.moveCalories - trend.moveCalories), 
-        restMinutes : Math.floor(today.restMinutes - trend.restMinutes), 
-        breatheMinutes : Math.floor(today.breatheMinutes - trend.breatheMinutes)
+        steps: changeFor("steps"),
+        moveCalories: changeFor("moveCalories"),
+        restMinutes: changeFor("restMinutes"),
+        breatheMinutes: changeFor("breatheMinutes"),
     };
 
     return result;

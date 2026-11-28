@@ -33,17 +33,20 @@ export type MetricDetailEntry = {
 
 export type MetricDetailRecord = {
   date: string;
-  total: number;
+  total: number | null;
   entries: MetricDetailEntry[];
 };
 
+export type MetricSource = "demo" | "import" | "manual" | "apple_health";
+
 export type DailyMetrics = {
   date: string;
-  source?: "demo" | "import" | "manual";
-  steps: number;
-  moveCalories: number;
-  restMinutes: number;
-  breatheMinutes: number;
+  source?: MetricSource;
+  /** null means nothing was recorded that day. 0 is an observed zero. */
+  steps: number | null;
+  moveCalories: number | null;
+  restMinutes: number | null;
+  breatheMinutes: number | null;
   readinessScore: number | null;
   manuallyCorrected?: boolean;
   checkIn?: { energy: number | null; soreness: number | null };
@@ -68,8 +71,8 @@ export type Trends = {
 }
 
 export type Changes = {
-  steps: number;
-  moveCalories: number;
-  restMinutes: number;
-  breatheMinutes: number;
+  steps: number | null;
+  moveCalories: number | null;
+  restMinutes: number | null;
+  breatheMinutes: number | null;
 }

@@ -119,3 +119,19 @@ describe("calculateChange", () => {
     expect(calculateChange(fractionalTrend, today).steps).toBe(Math.floor(101 - 100.5));
   });
 });
+
+describe("blank totals", () => {
+  it("compares the last two days that recorded each metric", () => {
+    const values = [
+      makeMetric("2026-01-01", { restMinutes: 400 }),
+      makeMetric("2026-01-02", { restMinutes: 430 }),
+      makeMetric("2026-01-03", { restMinutes: null }),
+    ];
+    expect(calculateTrend(values).restMinutes).toBe(30);
+  });
+
+  it("has no change for a metric the latest day didn't record", () => {
+    const trend: Averages = { steps: 1000, moveCalories: 300, restMinutes: 40, breatheMinutes: 10 };
+    expect(calculateChange(trend, makeMetric("2026-01-03", { breatheMinutes: null })).breatheMinutes).toBeNull();
+  });
+});
