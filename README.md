@@ -2,8 +2,6 @@
 
 Baseline is a personal recovery and activity dashboard. Daily records and their activity contributions are stored in PostgreSQL and served through the Next.js API.
 
-Development for these milestones uses [liv-rivera/baseline-plus](https://github.com/liv-rivera/baseline-plus). The older local Visual Studio checkout and its uncommitted metric-card CSS were unavailable in this workspace. The recovery implementation follows the resend work on the historical login branch. Review changes through draft pull requests before updating main.
-
 ## PostgreSQL Setup
 
 1. Create a PostgreSQL database with your provider or local PostgreSQL installation.
