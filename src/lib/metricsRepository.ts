@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { getDatabasePool } from "@/lib/database";
+import { CHECK_IN_JSON } from "@/lib/checkInJson";
 import type { Averages, DailyMetrics, MetricSource } from "@/types/metrics";
 
 type MetricRow = {
@@ -40,7 +41,7 @@ export async function readDailyMetrics(userId: string): Promise<DailyMetrics[]> 
   const metricResult = await pool.query<MetricRow>(
     `SELECT id, metric_date::text, steps, move_calories, rest_minutes,
             breathwork_minutes, readiness_score, source, manually_corrected,
-               (SELECT json_build_object('energy', energy, 'soreness', soreness)
+            (SELECT ${CHECK_IN_JSON}
                FROM daily_check_ins c WHERE c.user_id = m.user_id AND c.local_date = m.metric_date) AS check_in
        FROM daily_metrics m
       WHERE m.user_id = $1

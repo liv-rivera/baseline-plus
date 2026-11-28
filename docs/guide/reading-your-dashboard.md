@@ -16,7 +16,7 @@ Baseline+ doesn't calculate readiness itself. The score has to come from your da
 
 These labels describe a number. They aren't advice about whether you should train. You know your body and your condition, and your care team knows your situation.
 
-On the right you'll see that day's energy and soreness from your check-in, with buttons to add or edit the check-in and to import data.
+On the right you'll see that day's check-in: energy, soreness and any other scores you track (like dizziness) as five-step bars, and yes/no or number answers (like fluids) in a line underneath. There are also buttons to add or edit the check-in and to import data.
 
 ## The four cards
 
@@ -30,6 +30,7 @@ The chart shows your training minutes each day, stacked by sport: running, cycli
 
 - The line across the top is your readiness score, read against the right-hand scale.
 - Shaded days are days you rated your energy 2 or lower.
+- Hover over (or long-press) a bar or a shaded day to see that day's check-in.
 
 That combination is the point of the chart. You can see whether a heavy few days came before a run of low energy, or whether a rest week helped.
 
@@ -37,7 +38,7 @@ The sport comes from the activity's name, so walks and activities it doesn't rec
 
 ## Recent
 
-Your latest sessions, newest first, with how long each one was.
+Your latest sessions, newest first, with how long each one was. If you checked in that day, your scores sit under the session's name, so a hard day can be read next to the training around it.
 
 ## Comparisons
 

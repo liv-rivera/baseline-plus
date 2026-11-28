@@ -37,6 +37,21 @@ export type MetricDetailRecord = {
   entries: MetricDetailEntry[];
 };
 
+/** One answer from a field the owner added, such as Dizziness or Fluids. */
+export type CheckInSymptom =
+  | { label: string; kind: "score"; value: number; unit?: null }
+  | { label: string; kind: "yes_no"; value: boolean; unit?: null }
+  | { label: string; kind: "number"; value: number; unit?: string | null };
+
+/** The check-in saved for the same local date as the day's metrics. */
+export type DayCheckIn = {
+  energy: number | null;
+  soreness: number | null;
+  /** Answers to every other field, in form order. Hidden fields keep their answers. */
+  symptoms?: CheckInSymptom[];
+  tags?: string[];
+};
+
 export type MetricSource = "demo" | "import" | "manual" | "apple_health";
 
 export type DailyMetrics = {
@@ -49,7 +64,7 @@ export type DailyMetrics = {
   breatheMinutes: number | null;
   readinessScore: number | null;
   manuallyCorrected?: boolean;
-  checkIn?: { energy: number | null; soreness: number | null };
+  checkIn?: DayCheckIn;
   activities: Activity[];
   stepActivities: StepActivity[];
   restPeriods: RestPeriod[];

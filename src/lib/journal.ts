@@ -1,5 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import type { DayCheckIn } from "@/types/metrics";
+import { CHECK_IN_JSON } from "./checkInJson";
 import { getDatabasePool } from "./database";
 
 export function validDay(day: string) {
@@ -35,7 +37,15 @@ export async function readDay(owner: string, day: string) {
     "SELECT energy,soreness,note,updated_at::text AS revision FROM daily_check_ins WHERE user_id=$1 AND local_date=$2",
     [owner, day],
   );
-  return { metric: metrics.rows[0], checkIn: context.rows[0] };
+  // The day's workouts, from the same record as the totals, so they share its source.
+  const activities = await db.query<{ name: string; minutes: number; calories: number }>(
+    `SELECT c.name, c.duration_minutes AS minutes, c.quantity AS calories
+       FROM metric_contributions c JOIN daily_metrics m ON m.id = c.daily_metric_id
+      WHERE m.user_id=$1 AND m.metric_date=$2 AND c.metric_type='move_calories'
+      ORDER BY c.created_at, c.id`,
+    [owner, day],
+  );
+  return { metric: metrics.rows[0], checkIn: context.rows[0], activities: activities.rows };
 }
 
 export async function changeDay(owner: string, form: FormData) {
@@ -116,13 +126,10 @@ export async function changeDay(owner: string, form: FormData) {
 }
 
 export async function recentCheckIns(owner: string) {
-  const result = await getDatabasePool().query<{
-    date: string;
-    energy: number | null;
-    soreness: number | null;
-  }>(
-    "SELECT local_date::text AS date, energy, soreness FROM daily_check_ins WHERE user_id=$1 ORDER BY local_date DESC LIMIT 30",
+  const result = await getDatabasePool().query<{ date: string; check_in: DayCheckIn }>(
+    `SELECT local_date::text AS date, ${CHECK_IN_JSON} AS check_in
+       FROM daily_check_ins c WHERE user_id=$1 ORDER BY local_date DESC LIMIT 30`,
     [owner],
   );
-  return result.rows;
+  return result.rows.map((row) => ({ date: row.date, checkIn: row.check_in }));
 }

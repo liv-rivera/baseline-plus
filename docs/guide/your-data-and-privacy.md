@@ -16,7 +16,7 @@ Baseline+ doesn't sell or share your data. There are no ads or analytics tracker
 
 ## Downloading your records
 
-Go to **Settings > Your data** and choose **Download my records**. You'll get a JSON file with every saved day, activity and check-in, including days older than the dashboard shows. The Journal page has the same download at the bottom.
+Go to **Settings > Your data** and choose **Download my records**. You'll get a JSON file with every saved day, activity and check-in (each answer, plus the fields you set up and what their scores mean), including days older than the dashboard shows. The Journal page has the same download at the bottom.
 
 The file contains your health data, so keep it somewhere private.
 

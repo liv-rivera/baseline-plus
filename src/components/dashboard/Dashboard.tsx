@@ -13,6 +13,7 @@ import {
   priorMedian,
   recentSessions,
   sportLabels,
+  symptomText,
   trainingDays,
   type MetricKey,
 } from "@/lib/dashboardStats";
@@ -135,14 +136,21 @@ export function Dashboard({ metrics, averages, demo = false }: DashboardProps) {
           <p className={styles.heroSource}>{readinessDescription(latest)}</p>
         </div>
         <div className={styles.heroSide}>
-          {latest.checkIn ? (
+          {latest.checkIn && (
             <div className={styles.scales}>
               <Scale label="Energy" value={latest.checkIn.energy} />
               <Scale label="Soreness" value={latest.checkIn.soreness} />
+              {latest.checkIn.symptoms
+                ?.filter((s) => s.kind === "score")
+                .map((s) => <Scale key={s.label} label={s.label} value={s.value as number} />)}
             </div>
-          ) : (
-            <p className={styles.heroSource}>No check-in for {shortDate(latest.date)}.</p>
           )}
+          {latest.checkIn?.symptoms?.some((s) => s.kind !== "score") && (
+            <p className={styles.heroSource}>
+              {latest.checkIn.symptoms.filter((s) => s.kind !== "score").map(symptomText).join(" · ")}
+            </p>
+          )}
+          {!latest.checkIn && <p className={styles.heroSource}>No check-in for {shortDate(latest.date)}.</p>}
           {!demo && (
             <div className={styles.headerActions}>
               <Link className="button" href={journalHref}>{latest.checkIn ? "Edit check-in" : "Add a check-in"}</Link>
@@ -211,6 +219,7 @@ export function Dashboard({ metrics, averages, demo = false }: DashboardProps) {
                   <span>
                     {session.name}
                     <span className={styles.visuallyHidden}> ({sportLabels[session.sport]})</span>
+                    {session.checkIn && <span className={styles.sessionCheckIn}>{session.checkIn}</span>}
                   </span>
                   <span className={styles.sessionMeta}>{session.minutes} min · {shortDate(session.date)}</span>
                 </li>

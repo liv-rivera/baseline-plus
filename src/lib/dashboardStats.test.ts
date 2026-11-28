@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DailyMetrics } from "@/types/metrics";
-import { formatMinutes, percentChange, priorMedian, recentSeries, recentSessions, sportOf, trainingDays } from "./dashboardStats";
+import { checkInLine, formatMinutes, percentChange, priorMedian, recentSeries, recentSessions, sportOf, symptomText, trainingDays } from "./dashboardStats";
 
 const day = (date: string, overrides: Partial<DailyMetrics> = {}): DailyMetrics => ({
   date, steps: 1000, moveCalories: 100, restMinutes: 400, breatheMinutes: 0, readinessScore: 70,
@@ -34,7 +34,29 @@ describe("dashboard stats", () => {
     const days = trainingDays(rows, rows[1], 3);
     expect(days.map((d) => d.date)).toEqual(["2026-02-01", "2026-02-02", "2026-02-03"]);
     expect(days[2]).toMatchObject({ lowEnergy: true, sessions: [{ sport: "run", minutes: 30 }] });
-    expect(recentSessions(rows)).toEqual([{ date: "2026-02-03", sport: "run", name: "Easy run", minutes: 30, calories: 300 }]);
+    expect(days[2].checkIn).toBe("Energy 2/5 · Soreness 3/5");
+    expect(days[1].checkIn).toBeNull();
+    expect(recentSessions(rows)).toEqual([
+      { date: "2026-02-03", sport: "run", name: "Easy run", minutes: 30, calories: 300, checkIn: "Energy 2 · Soreness 3" },
+    ]);
+  });
+
+  it("writes a check-in as one line, with only scores beside a workout", () => {
+    const checkIn = {
+      energy: null,
+      soreness: 2,
+      symptoms: [
+        { label: "Dizziness", kind: "score" as const, value: 4 },
+        { label: "Flare today", kind: "yes_no" as const, value: true },
+        { label: "Fluids", kind: "number" as const, value: 2.5, unit: "L" },
+        { label: "Reps", kind: "number" as const, value: 1200, unit: null },
+      ],
+    };
+    expect(checkInLine(checkIn)).toBe("Soreness 2/5 · Dizziness 4/5 · Flare today: yes · Fluids 2.5 L · Reps 1,200");
+    expect(checkInLine(checkIn, { scoresOnly: true })).toBe("Soreness 2 · Dizziness 4");
+    expect(checkInLine({ energy: null, soreness: null, symptoms: [] })).toBeNull();
+    expect(checkInLine(undefined)).toBeNull();
+    expect(symptomText({ label: "Meds taken", kind: "yes_no", value: false })).toBe("Meds taken: no");
   });
 
   it("formats minutes as hours and minutes", () => {

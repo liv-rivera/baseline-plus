@@ -99,6 +99,11 @@ export function generateSampleMetrics(endDate: string, days = SAMPLE_DAYS): Dail
       ? {
           energy: flare ? between(1, 2) : between(3, 5),
           soreness: flare ? between(3, 5) : hardDay ? between(2, 3) : between(1, 2),
+          symptoms: [
+            { label: "Dizziness", kind: "score" as const, value: flare ? between(3, 5) : between(1, 2) },
+            { label: "Flare today", kind: "yes_no" as const, value: flare },
+            { label: "Fluids", kind: "number" as const, value: between(18, 30) / 10, unit: "L" },
+          ],
         }
       : undefined;
 

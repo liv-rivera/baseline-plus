@@ -298,7 +298,7 @@
 
 .scaleRow {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) 16px;
+  grid-template-columns: 88px minmax(0, 1fr) 16px;
   align-items: center;
   gap: 8px;
   font-size: 13px;
@@ -348,6 +348,13 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
+}
+
+.sessionCheckIn {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .sessionMeta {
