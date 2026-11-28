@@ -44,3 +44,33 @@ it("reports weekly medians and check-in coverage with sparse context", () => {
     recap.reference.observations.some((day) => day.date === rows[13].date),
   ).toBe(false);
 });
+
+it("requires fourteen comparable prior observations in the 28-day window", () => {
+  const anchor = record("2026-03-01", 100);
+  const days = Array.from({ length: 14 }, (_, i) =>
+    record("2026-02-" + String(28 - i).padStart(2, "0"), i),
+  );
+  expect(
+    personalRecap(days.slice(1), anchor, 28, "steps").reference.median,
+  ).toBeNull();
+  expect(personalRecap(days, anchor, 28, "steps").reference.median).toBe(6.5);
+});
+it("excludes corrected imports from uncorrected imported baselines", () => {
+  const anchor = record("2026-03-01", 20, "import");
+  const rows = Array.from({ length: 7 }, (_, i) => ({
+    ...record("2026-02-" + (28 - i), 10, "import"),
+    manuallyCorrected: i < 4,
+  }));
+  expect(
+    personalRecap(rows, anchor, 7, "steps").reference.observations,
+  ).toHaveLength(3);
+  expect(personalRecap(rows, anchor, 7, "steps").reference.median).toBeNull();
+});
+it("uses leap-day calendar dates and produces gaps for a day without records", () => {
+  const anchor = record("2024-03-01", 0);
+  const result = personalRecap([], anchor, 7, "steps");
+  expect(result.reference.end).toBe("2024-02-29");
+  expect(result.reference.gaps).toHaveLength(7);
+  expect(result.week.checkInCount).toBe(0);
+  expect(result.week.median).toBeNull();
+});
