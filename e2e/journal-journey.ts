@@ -31,6 +31,6 @@ export async function exerciseJournal(page: Page, origin: string) {
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Dashboard" }).click();
   await expect(page.getByRole("img", { name: "Energy 4 of 5" })).toBeVisible();
   await expect(page.getByRole("img", { name: "Soreness skipped" })).toBeVisible();
-  await page.getByRole("link", { name: "Open this day" }).click();
+  await page.getByRole("link", { name: "Edit check-in" }).click();
   await expect(page.getByLabel("Steps", { exact: true })).toHaveValue("2345");
 }

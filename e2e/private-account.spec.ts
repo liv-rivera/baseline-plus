@@ -160,8 +160,7 @@ test("a private owner verifies, imports a summary and recovers access on mobile"
     page.getByRole("link", { name: "Baseline+", exact: true }),
   ).toBeFocused();
   await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/");
-  await page.getByLabel("Prior window").selectOption("28");
-  await expect(page.getByText(/28 observed days/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Training" })).toBeVisible();
   await page.setViewportSize({ width: 1440, height: 1000 });
   expect(
     await page.evaluate(

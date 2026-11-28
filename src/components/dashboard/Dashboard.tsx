@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
-import { PersonalRecap } from "@/components/PersonalRecap";
 import { ReadinessGauge } from "@/components/readinessGauge";
 import { calculateChange, calculateTrend } from "@/lib/metricCalculations";
 import {
@@ -52,9 +51,6 @@ const longDate = (date: string) =>
   new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
 const shortDate = (date: string) =>
   new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
-
-const sourceLabel = (source: DailyMetrics["source"] | string | undefined) =>
-  source === "import" ? "CSV import" : source === "manual" ? "your journal" : source === "demo" ? "sample data" : source === "apple_health" ? "Apple Health" : "your records";
 
 function readinessDescription(latest: DailyMetrics) {
   if (latest.readinessScore === null) return "No score recorded for this date.";
@@ -184,8 +180,7 @@ export function Dashboard({ metrics, averages, demo = false }: DashboardProps) {
         <section className={`${styles.panel} ${styles.chartPanel}`} aria-labelledby="training-title">
           <div className={styles.panelHeading}>
             <div>
-              <h2 id="training-title">Training and readiness</h2>
-              <p className={styles.subtle}>Minutes by sport each day, with your readiness score.</p>
+              <h2 id="training-title">Training</h2>
             </div>
             <div className={styles.segmented} role="group" aria-label="Chart range">
               {ranges.map((option) => (
@@ -205,8 +200,7 @@ export function Dashboard({ metrics, averages, demo = false }: DashboardProps) {
         </section>
 
         <section className={styles.panel} aria-labelledby="sessions-title">
-          <h2 id="sessions-title">Recent sessions</h2>
-          <p className={styles.subtle}>{metrics.length} {metrics.length === 1 ? "day" : "days"} of records · latest from {sourceLabel(latest.source)}</p>
+          <h2 id="sessions-title">Recent</h2>
           {sessions.length === 0 ? (
             <p className={styles.subtle}>No sport sessions recorded yet.</p>
           ) : (
@@ -226,10 +220,9 @@ export function Dashboard({ metrics, averages, demo = false }: DashboardProps) {
         </section>
       </div>
 
-      <div className={styles.lowerRow}>
+      <div>
         <section className={styles.panel} aria-labelledby="compare-title">
-          <h2 id="compare-title">How the latest day compares</h2>
-          <p className={styles.subtle}>Against the previous record and your full-history average.</p>
+          <h2 id="compare-title">Comparisons</h2>
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
@@ -256,7 +249,6 @@ export function Dashboard({ metrics, averages, demo = false }: DashboardProps) {
             </table>
           </div>
         </section>
-        <PersonalRecap rows={metrics} latest={latest} demo={demo} />
       </div>
     </div>
   );
