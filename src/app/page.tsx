@@ -10,7 +10,6 @@ export default async function Landing({searchParams}: {searchParams: Promise<{go
     <div className={styles.page}>
       <main className={styles.main}>
         <section className={styles.intro} aria-labelledby="page-title">
-          <p className={styles.mark} aria-hidden="true">B</p>
           <p className={styles.kicker}>PERSONAL PERFORMANCE</p>
           <h1 id="page-title">Baseline+</h1>
           <p className={styles.description}>
