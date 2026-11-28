@@ -33,6 +33,31 @@ it("starts empty, shows each score's description and lets a choice be undone", a
   expect(screen.queryByText("Clear this day")).not.toBeInTheDocument();
 });
 
+it("shows four faces with the approximate amount under each", async () => {
+  const salt: CheckInField = {
+    ...base,
+    id: "s",
+    label: "Salt",
+    kind: "faces",
+    scoreLabels: ["About 10 mg to 1 g", "About 1 to 3 g", "About 3 to 6 g", "About 6 to 10 g"],
+  };
+  render(<CheckInForm date="2026-11-26" owner="o" fields={[salt]} answers={{ s: { kind: "faces", score: 2 } }} recentTags={[]} />);
+  const user = userEvent.setup();
+  const faces = screen.getAllByRole("radio");
+  expect(faces.map((face) => face.textContent)).toEqual([
+    "😞About 10 mg to 1 g",
+    "😐About 1 to 3 g",
+    "🙂About 3 to 6 g",
+    "😃About 6 to 10 g",
+  ]);
+  expect(screen.getByRole("radio", { name: "About 1 to 3 g" })).toHaveAttribute("aria-checked", "true");
+  expect(hidden("field_s")).toEqual(["2"]);
+  await user.click(screen.getByRole("radio", { name: "About 6 to 10 g" }));
+  expect(hidden("field_s")).toEqual(["4"]);
+  await user.click(screen.getByRole("radio", { name: "About 6 to 10 g" }));
+  expect(hidden("field_s")).toEqual([""]);
+});
+
 it("adds, reuses and removes tags", async () => {
   render(<CheckInForm date="2026-11-26" owner="o" fields={fields} answers={{}} recentTags={["heat"]} />);
   const user = userEvent.setup();

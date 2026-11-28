@@ -1,4 +1,5 @@
 import type { CheckInSymptom, DailyMetrics, DayCheckIn } from "@/types/metrics";
+import { FACES } from "./checkInValues";
 
 export type MetricKey = "steps" | "moveCalories" | "restMinutes" | "breatheMinutes" | "readinessScore";
 export type Sport = "run" | "ride" | "swim" | "yoga" | "strength";
@@ -84,6 +85,8 @@ export type TrainingDay = {
 /** One answer in a few words: "Dizziness 4/5", "Flare today: yes", "Fluids 2.5 L". */
 export function symptomText(symptom: CheckInSymptom): string {
   if (symptom.kind === "score") return `${symptom.label} ${symptom.value}/5`;
+  if (symptom.kind === "faces")
+    return `${symptom.label} ${FACES[symptom.value - 1] ?? symptom.value}${symptom.description ? ` (${symptom.description.replace(/^About /, "about ")})` : ""}`;
   if (symptom.kind === "yes_no") return `${symptom.label}: ${symptom.value ? "yes" : "no"}`;
   return `${symptom.label} ${symptom.value.toLocaleString("en-US")}${symptom.unit ? ` ${symptom.unit}` : ""}`;
 }

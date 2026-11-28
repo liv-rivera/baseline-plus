@@ -27,6 +27,7 @@ const migrationFiles = [
   "007_apple_health_source.sql",
   "008_check_in_fields.sql",
   "009_beta_invites.sql",
+  "010_check_in_faces_and_fluid_units.sql",
 ];
 
 const makeMetric = (
@@ -1140,7 +1141,12 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
       expect(fields.filter((f) => f.label === "Fluids")).toEqual([
         expect.objectContaining({ id: fluids.field.id, unit: "ml", retired: false }),
       ]);
-      expect(fields.find((f) => f.label === "Salt")).toMatchObject({ kind: "number", unit: "g", preset: "pots" });
+      expect(fields.find((f) => f.label === "Salt")).toMatchObject({
+        kind: "faces",
+        unit: null,
+        preset: "pots",
+        scoreLabels: ["About 10 mg to 1 g", "About 1 to 3 g", "About 3 to 6 g", "About 6 to 10 g"],
+      });
       const brainFog = fields.find((f) => f.label === "Brain fog")!;
       expect(brainFog).toMatchObject({ kind: "score", promptMetrics: ["sleep_duration"] });
       expect(brainFog.scoreLabels).toHaveLength(5);
@@ -1152,6 +1158,91 @@ describe.runIf(databaseUrl)("metricsRepository (integration)", () => {
 
       // Another account is unaffected.
       expect((await listCheckInFields(legacyUser)).map((f) => f.label)).not.toContain("Salt");
+    });
+
+    it("saves faces answers as 1 to 4 and shows them on the day", async () => {
+      const { applyCheckInPreset, listCheckInFields, readCheckIn, saveCheckIn } = await import("./checkIns");
+      const { CHECK_IN_JSON } = await import("./checkInJson");
+      await applyCheckInPreset(userId, "pots");
+      const salt = (await listCheckInFields(userId)).find((f) => f.label === "Salt")!;
+      const faceDay = "2026-11-21";
+      expect(await saveCheckIn(userId, faceDay, { [salt.id]: "5" })).toMatchObject({ ok: false });
+      expect(await saveCheckIn(userId, faceDay, { [salt.id]: "3" })).toMatchObject({ ok: true });
+      expect((await readCheckIn(userId, faceDay))?.answers[salt.id]).toEqual({ kind: "faces", score: 3 });
+      const { rows } = await pool.query(
+        `SELECT ${CHECK_IN_JSON} AS c FROM daily_check_ins c WHERE c.user_id=$1 AND c.local_date=$2`,
+        [userId, faceDay],
+      );
+      expect(rows[0].c.symptoms).toContainEqual({ label: "Salt", kind: "faces", value: 3, unit: null, description: "About 3 to 6 g" });
+    });
+
+    it("switches fluids between litres and ounces, converting saved answers", async () => {
+      const { addCheckInField, applyCheckInPreset, getFluidUnit, listCheckInFields, readCheckIn, saveCheckIn, setFluidUnit } =
+        await import("./checkIns");
+      const owner = randomUUID();
+      await pool.query("INSERT INTO users (id,email,display_name) VALUES ($1,$2,'Fluids')", [owner, `${owner}@example.test`]);
+      expect(await getFluidUnit(owner)).toBe("L");
+      await applyCheckInPreset(owner, "pots");
+      const water = await addCheckInField(owner, { label: "Water at work", kind: "number", unit: "L" });
+      const sodium = await addCheckInField(owner, { label: "Sodium tabs", kind: "number", unit: "g" });
+      if (!water.ok || !sodium.ok) throw new Error("field setup failed");
+      const fluids = (await listCheckInFields(owner)).find((f) => f.label === "Fluids")!;
+      await saveCheckIn(owner, "2026-11-20", { [fluids.id]: "2", [water.field.id]: "0.5", [sodium.field.id]: "3" });
+
+      await setFluidUnit(owner, "oz");
+      expect(await getFluidUnit(owner)).toBe("oz");
+      let fields = await listCheckInFields(owner);
+      expect(fields.find((f) => f.id === fluids.id)?.unit).toBe("oz");
+      expect(fields.find((f) => f.id === sodium.field.id)?.unit).toBe("g");
+      let answers = (await readCheckIn(owner, "2026-11-20"))!.answers;
+      expect(answers[fluids.id]).toEqual({ kind: "number", number: 67.63 });
+      expect(answers[water.field.id]).toEqual({ kind: "number", number: 16.91 });
+      expect(answers[sodium.field.id]).toEqual({ kind: "number", number: 3 });
+
+      // Saving the same unit again changes nothing; switching back converts again.
+      await setFluidUnit(owner, "oz");
+      expect((await readCheckIn(owner, "2026-11-20"))!.answers[fluids.id]).toEqual({ kind: "number", number: 67.63 });
+      await setFluidUnit(owner, "L");
+      fields = await listCheckInFields(owner);
+      expect(fields.find((f) => f.id === fluids.id)?.unit).toBe("L");
+      answers = (await readCheckIn(owner, "2026-11-20"))!.answers;
+      expect(answers[fluids.id]).toEqual({ kind: "number", number: 2 });
+
+      // A new starter set uses the chosen unit, and other accounts are untouched.
+      await setFluidUnit(owner, "oz");
+      const second = randomUUID();
+      await pool.query("INSERT INTO users (id,email,display_name) VALUES ($1,$2,'Second')", [second, `${second}@example.test`]);
+      await pool.query("INSERT INTO check_in_settings (user_id, fluid_unit) VALUES ($1,'oz')", [second]);
+      await applyCheckInPreset(second, "pots");
+      expect((await listCheckInFields(second)).find((f) => f.label === "Fluids")?.unit).toBe("oz");
+      expect(await getFluidUnit(userId)).toBe("L");
+      await pool.query("DELETE FROM users WHERE id = ANY($1)", [[owner, second]]);
+    });
+
+    it("turns an unused POTS Salt number field into faces, leaving one with history alone", async () => {
+      const migration = readFileSync(new URL("../../database/migrations/010_check_in_faces_and_fluid_units.sql", import.meta.url), "utf8");
+      const update = migration.slice(migration.indexOf("UPDATE check_in_fields f"), migration.indexOf("COMMIT;"));
+      const fresh = randomUUID();
+      const used = randomUUID();
+      for (const id of [fresh, used])
+        await pool.query("INSERT INTO users (id,email,display_name) VALUES ($1,$2,'Salt')", [id, `${id}@example.test`]);
+      const insertSalt = (owner: string) =>
+        pool.query<{ id: string }>(
+          "INSERT INTO check_in_fields (user_id,label,kind,unit,position,preset) VALUES ($1,'Salt','number','g',5,'pots') RETURNING id",
+          [owner],
+        );
+      await insertSalt(fresh);
+      const usedSalt = (await insertSalt(used)).rows[0].id;
+      await pool.query("INSERT INTO daily_check_ins (user_id, local_date) VALUES ($1,'2026-11-20')", [used]);
+      await pool.query("INSERT INTO check_in_answers (user_id, local_date, field_id, number) VALUES ($1,'2026-11-20',$2,4.5)", [used, usedSalt]);
+      await pool.query(update);
+      const { rows } = await pool.query(
+        "SELECT user_id, kind, unit, cardinality(score_labels) AS labels FROM check_in_fields WHERE label='Salt' AND user_id = ANY($1)",
+        [[fresh, used]],
+      );
+      expect(rows.find((r) => r.user_id === fresh)).toMatchObject({ kind: "faces", unit: null, labels: 4 });
+      expect(rows.find((r) => r.user_id === used)).toMatchObject({ kind: "number", unit: "g", labels: null });
+      await pool.query("DELETE FROM users WHERE id = ANY($1)", [[fresh, used]]);
     });
 
     it("lets only one of two first saves for the same day win", async () => {

@@ -1,4 +1,4 @@
-import type { CheckInFieldKind, PromptMetric } from "./checkInValues";
+import { SALT_FACE_LABELS, type CheckInFieldKind, type PromptMetric } from "./checkInValues.ts";
 
 // Starter sets of check-in fields (T259). Each preset is plain data, so another condition
 // can be added here without touching the database code. A preset only adds fields the
@@ -30,7 +30,7 @@ export const CHECK_IN_PRESETS: CheckInPreset[] = [
       { label: "Brain fog", kind: "score", promptMetrics: ["sleep_duration"] },
       { label: "Flare today", kind: "yes_no" },
       { label: "Fluids", kind: "number", unit: "L" },
-      { label: "Salt", kind: "number", unit: "g" },
+      { label: "Salt", kind: "faces", scoreLabels: SALT_FACE_LABELS },
       { label: "Compression worn", kind: "yes_no" },
       { label: "Meds taken", kind: "yes_no" },
     ],

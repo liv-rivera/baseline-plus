@@ -40,6 +40,8 @@ export type MetricDetailRecord = {
 /** One answer from a field the owner added, such as Dizziness or Fluids. */
 export type CheckInSymptom =
   | { label: string; kind: "score"; value: number; unit?: null }
+  /** Faces 1 to 4 (😞 😐 🙂 😃), with the face's description when it has one. */
+  | { label: string; kind: "faces"; value: number; unit?: null; description?: string | null }
   | { label: string; kind: "yes_no"; value: boolean; unit?: null }
   | { label: string; kind: "number"; value: number; unit?: string | null };
 

@@ -11,6 +11,7 @@ import {
   reorderCheckInFields,
   setCheckInFieldRetired,
   setCheckInTime,
+  setFluidUnit,
   updateCheckInField,
 } from "@/lib/checkIns";
 import { CHECK_IN_FIELD_KINDS, type CheckInFieldKind } from "@/lib/checkInValues";
@@ -38,6 +39,17 @@ export async function manageCheckIn(_: ManageState, form: FormData): Promise<Man
         if (time !== "morning" && time !== "evening") return { ok: false, message: "Choose morning or evening." };
         await setCheckInTime(owner, time);
         return done(time === "morning" ? "Check-ins now describe last night and today." : "Check-ins now describe the day just finished.");
+      }
+      case "fluid-unit": {
+        const unit = form.get("fluidUnit");
+        if (unit !== "L" && unit !== "oz") return { ok: false, message: "Choose litres or ounces." };
+        await setFluidUnit(owner, unit);
+        return done(unit === "oz" ? "Fluids are now in US fluid ounces. Saved amounts were converted." : "Fluids are now in litres. Saved amounts were converted.");
+      }
+      case "labels": {
+        const labels = form.getAll("scoreLabel").map(String);
+        const result = await updateCheckInField(owner, fieldId, { scoreLabels: labels });
+        return result.ok ? done(`Saved the descriptions for ${result.field.label}.`) : { ok: false, message: result.message };
       }
       case "add": {
         const kind = String(form.get("kind")) as CheckInFieldKind;

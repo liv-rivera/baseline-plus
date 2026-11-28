@@ -33,10 +33,11 @@ npm run db:migrate:journal
 npm run db:migrate:apple-health
 npm run db:migrate:check-in-fields
 npm run db:migrate:beta-invites
+npm run db:migrate:check-in-faces
 npm run db:seed
 ```
 
-Run the migrations in that order. They map to `database/migrations/001` through `009`.
+Run the migrations in that order. They map to `database/migrations/001` through `010`.
 
 If `psql` fails with an error about `root.crt` on a managed database like Neon, add `PGSSLROOTCERT=system` to `.env.local` (or put it in front of the command). That tells `psql` to trust the system's certificates.
 
@@ -51,7 +52,7 @@ Next.js reads `.env.local` only when it starts, so restart `npm run dev` after c
 
 ### The demo account and sample dashboard
 
-The seed gives the demo account (`demo@baseline.example`) six weeks of made-up records ending on the day you run it: runs, rides, swims, yoga and some light strength work, daily check-ins, and one rough week in the middle. Running the seed again resets the demo account's records.
+The seed gives the demo account (`demo@baseline.example`) six weeks of made-up records ending on the day you run it: runs, rides, swims, yoga and some light strength work, daily check-ins with the POTS starter set filled in (dizziness, brain fog, fluids, salt and so on), and one rough week in the middle. Running the seed again resets the demo account's records.
 
 To sign in as the demo account, set `BASELINE_DEMO_PASSWORD` to a password of at least 12 characters and run `NODE_ENV=development npm run auth:bootstrap-demo`. That marks only the demo user as verified and creates or updates its password. The script refuses to run outside development.
 
@@ -147,7 +148,7 @@ npm run test:coverage
 npm run build
 ```
 
-Run `npm run test:integration` with `DATABASE_URL` set to a fresh, empty disposable PostgreSQL database. The suite applies migrations 001–009 and exercises per-account reads and atomic writes.
+Run `npm run test:integration` with `DATABASE_URL` set to a fresh, empty disposable PostgreSQL database. The suite applies migrations 001–010 and exercises per-account reads and atomic writes.
 
 For the browser rehearsal, use a separate freshly migrated disposable database, a local Mailpit instance, `BASELINE_MAIL_TRANSPORT=mailpit`, and a fresh `qa-<uuid>@example.test` as `BASELINE_OWNER_EMAIL`. Set both app URLs to `http://localhost:3300`. Start the app with `npm run dev -- -H 127.0.0.1 -p 3300`. Export the same fixture owner and transport in the test shell. Run `npx playwright install chromium` once, then `npm run test:e2e` (or set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to a local Chromium). It exercises verification, import, reset-link reuse, credential change and session invalidation. To run the equivalent HTTP lifecycle checks against a separate fresh fixture, set `BASELINE_API_ONLY=1` in the test shell. The database and inbox should contain synthetic records only.
 

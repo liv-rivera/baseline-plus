@@ -25,4 +25,12 @@ describe("check-in presets", () => {
     ]);
     expect(findPreset("missing")).toBeUndefined();
   });
+
+  it("measures salt with four faces, each with an approximate amount", () => {
+    expect(findPreset("pots")?.fields.find((field) => field.label === "Salt")).toEqual({
+      label: "Salt",
+      kind: "faces",
+      scoreLabels: ["About 10 mg to 1 g", "About 1 to 3 g", "About 3 to 6 g", "About 6 to 10 g"],
+    });
+  });
 });

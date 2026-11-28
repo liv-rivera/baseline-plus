@@ -1,7 +1,7 @@
 // Pure types and validation for configurable check-in fields (T257). No database access here,
 // so the rules can be unit tested and reused by the form (T258).
 
-export const CHECK_IN_FIELD_KINDS = ["score", "yes_no", "number", "notes"] as const;
+export const CHECK_IN_FIELD_KINDS = ["score", "faces", "yes_no", "number", "notes"] as const;
 export type CheckInFieldKind = (typeof CHECK_IN_FIELD_KINDS)[number];
 
 export const PROMPT_METRICS = ["hrv", "resting_heart_rate", "sleep_duration"] as const;
@@ -13,7 +13,7 @@ export interface CheckInField {
   id: string;
   label: string;
   kind: CheckInFieldKind;
-  /** Five descriptions for scores 1 to 5. Score fields only. */
+  /** Five descriptions for score fields (1 to 5), four for faces fields (1 to 4). */
   scoreLabels: string[] | null;
   unit: string | null;
   position: number;
@@ -25,6 +25,7 @@ export interface CheckInField {
 
 export type CheckInAnswer =
   | { kind: "score"; score: number }
+  | { kind: "faces"; score: number }
   | { kind: "yes_no"; yesNo: boolean }
   | { kind: "number"; number: number }
   | { kind: "notes"; tags: string[]; note: string };
@@ -37,6 +38,28 @@ export const SYMPTOM_SCORE_LABELS = [
   "Strong, I changed my plans for it",
   "Severe, it stopped me",
 ];
+
+/** The four steps of a faces field, stored as 1 to 4. */
+export const FACES = ["😞", "😐", "🙂", "😃"] as const;
+
+/** Default descriptions for a new faces field. */
+export const FACE_LABELS = ["Much less than I'd like", "A bit less", "About right", "Plenty"];
+
+/** Approximate salt amounts for each face, from 10 mg up to 10 g (used by the POTS Salt field). */
+export const SALT_FACE_LABELS = ["About 10 mg to 1 g", "About 1 to 3 g", "About 3 to 6 g", "About 6 to 10 g"];
+
+export const FLUID_UNITS = ["L", "oz"] as const;
+export type FluidUnit = (typeof FLUID_UNITS)[number];
+
+/** Litres in one US fluid ounce. */
+export const LITRES_PER_FL_OZ = 0.0295735;
+
+/** Convert a fluid amount between litres and US fluid ounces, to two decimals. */
+export function convertFluid(value: number, from: FluidUnit, to: FluidUnit): number {
+  if (from === to) return value;
+  const converted = from === "L" ? value / LITRES_PER_FL_OZ : value * LITRES_PER_FL_OZ;
+  return Math.round(converted * 100) / 100;
+}
 
 export const LIMITS = {
   label: 40,
@@ -65,6 +88,13 @@ export function parseCheckInAnswer(
       if (!Number.isInteger(score) || score < 1 || score > 5)
         return { error: `${field.label}: choose 1 to 5.` };
       return { kind: "score", score };
+    }
+    case "faces": {
+      if (text === "" || text === null || text === undefined) return null;
+      const score = Number(text);
+      if (!Number.isInteger(score) || score < 1 || score > 4)
+        return { error: `${field.label}: choose one of the four faces.` };
+      return { kind: "faces", score };
     }
     case "yes_no": {
       if (text === "" || text === null || text === undefined) return null;
@@ -116,7 +146,11 @@ export function fieldDraftError(draft: FieldDraft): string | null {
     const labels = draft.scoreLabels ?? SYMPTOM_SCORE_LABELS;
     if (labels.length !== 5 || labels.some((l) => !l.trim() || l.length > LIMITS.scoreLabel))
       return `Describe each score from 1 to 5 in up to ${LIMITS.scoreLabel} characters.`;
-  } else if (draft.scoreLabels) return "Only score fields have score descriptions.";
+  } else if (draft.kind === "faces") {
+    const labels = draft.scoreLabels ?? FACE_LABELS;
+    if (labels.length !== 4 || labels.some((l) => !l.trim() || l.length > LIMITS.scoreLabel))
+      return `Describe each of the four faces in up to ${LIMITS.scoreLabel} characters.`;
+  } else if (draft.scoreLabels) return "Only score and faces fields have descriptions.";
   if (draft.unit && (draft.kind !== "number" || draft.unit.trim().length > LIMITS.unit))
     return `Only number fields have a unit, up to ${LIMITS.unit} characters.`;
   if (draft.promptMetrics?.some((m) => !PROMPT_METRICS.includes(m))) return "Unknown metric.";

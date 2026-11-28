@@ -1,20 +1,22 @@
 "use client";
 import { useActionState } from "react";
 import { CHECK_IN_PRESETS } from "@/lib/checkInPresets";
-import type { CheckInField, CheckInTime } from "@/lib/checkInValues";
+import { type CheckInField, type CheckInTime, FACES, type FluidUnit } from "@/lib/checkInValues";
 import { type ManageState, manageCheckIn } from "./checkInSettingsActions";
 import styles from "./checkInSettings.module.css";
 
 const initial: ManageState = { ok: false, message: "" };
-const KIND_NAMES = { score: "Score 1 to 5", yes_no: "Yes / no", number: "Number", notes: "Notes" } as const;
+const KIND_NAMES = { score: "Score 1 to 5", faces: "Faces 😞 to 😃", yes_no: "Yes / no", number: "Number", notes: "Notes" } as const;
 
 export function CheckInSettings({
   owner,
   time,
+  fluidUnit,
   fields,
 }: {
   owner: string;
   time: CheckInTime;
+  fluidUnit: FluidUnit;
   fields: CheckInField[];
 }) {
   const [state, act, pending] = useActionState(manageCheckIn, initial);
@@ -44,6 +46,21 @@ export function CheckInSettings({
         <button disabled={pending}>Save</button>
       </form>
 
+      <form action={act} className={styles.time}>
+        {hidden("fluid-unit")}
+        <fieldset>
+          <legend>Measure fluids in</legend>
+          {(["L", "oz"] as const).map((option) => (
+            <label key={option}>
+              <input type="radio" name="fluidUnit" value={option} defaultChecked={fluidUnit === option} />
+              {option === "L" ? "Litres (L)" : "US fluid ounces (oz)"}
+            </label>
+          ))}
+        </fieldset>
+        <p className={styles.note}>Amounts you&apos;ve already saved are converted, so your history stays the same.</p>
+        <button disabled={pending}>Save</button>
+      </form>
+
       <h3>Fields on your check-in</h3>
       <ol className={styles.fields}>
         {active.map((field, index) => (
@@ -57,6 +74,27 @@ export function CheckInSettings({
               </span>
               <button className={styles.quiet} disabled={pending}>Rename</button>
             </form>
+            {field.kind === "faces" && field.scoreLabels && (
+              <details className={styles.labels}>
+                <summary>Edit descriptions</summary>
+                <form action={act}>
+                  {hidden("labels", field.id)}
+                  {field.scoreLabels.map((label, i) => (
+                    <label key={i}>
+                      <span aria-hidden="true">{FACES[i]}</span>
+                      <input
+                        name="scoreLabel"
+                        aria-label={`Description for ${FACES[i]}`}
+                        defaultValue={label}
+                        maxLength={80}
+                        required
+                      />
+                    </label>
+                  ))}
+                  <button className={styles.quiet} disabled={pending}>Save descriptions</button>
+                </form>
+              </details>
+            )}
             <div className={styles.row}>
               <form action={act}>
                 {hidden("up", field.id)}
@@ -85,13 +123,14 @@ export function CheckInSettings({
           Type
           <select name="kind" defaultValue="score">
             <option value="score">Score 1 to 5</option>
+            <option value="faces">Faces 😞 😐 🙂 😃</option>
             <option value="yes_no">Yes / no</option>
             <option value="number">Number</option>
           </select>
         </label>
         <label>
           Unit (numbers only)
-          <input name="unit" placeholder="L, g, mg" maxLength={12} />
+          <input name="unit" placeholder="L, oz, mg" maxLength={12} />
         </label>
         <button disabled={pending}>Add field</button>
       </form>
