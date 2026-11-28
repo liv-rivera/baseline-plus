@@ -26,6 +26,7 @@
     "db:migrate:journal": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/006_check_ins.sql",
     "db:migrate:apple-health": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/007_apple_health_source.sql",
     "db:migrate:check-in-fields": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/008_check_in_fields.sql",
+    "db:migrate:beta-invites": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/migrations/009_beta_invites.sql",
     "test:private-rehearsal": "node scripts/private-rehearsal.mjs",
     "test:local-release": "node scripts/local-release-rehearsal.mjs"
   },

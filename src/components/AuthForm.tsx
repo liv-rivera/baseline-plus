@@ -8,11 +8,14 @@ import styles from "./AuthForm.module.css";
 
 type AuthMode = "sign-in" | "sign-up";
 
-export function AuthForm({ googleEnabled = false }: { googleEnabled?: boolean } = {}) {
+export function AuthForm({
+  googleEnabled = false,
+  invitedEmail = "",
+}: { googleEnabled?: boolean; invitedEmail?: string } = {}) {
   const router = useRouter();
-  const [mode, setMode] = useState<AuthMode>("sign-in");
+  const [mode, setMode] = useState<AuthMode>(invitedEmail ? "sign-up" : "sign-in");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(invitedEmail);
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -40,9 +43,13 @@ export function AuthForm({ googleEnabled = false }: { googleEnabled?: boolean } 
           callbackURL: "/home",
         });
         if (result.error) {
-          throw new Error("Unable to create the account. Check the details and try again.");
+          throw new Error(
+            "We couldn't create the account. Baseline+ is invite-only for now, so use the address your invite was sent to.",
+          );
         }
-        setNotice("Check your email for a verification link to finish creating your account.");
+        setNotice(
+          "Check your email for a verification link to finish creating your account. If nothing arrives, check that you used the address you were invited with.",
+        );
         return;
       }
 
@@ -87,6 +94,13 @@ export function AuthForm({ googleEnabled = false }: { googleEnabled?: boolean } 
       <div className={styles.heading}>
         <p className={styles.eyebrow}>{mode === "sign-in" ? "WELCOME BACK" : "GET STARTED"}</p>
         <h2 id="auth-title">{mode === "sign-in" ? "Log in to Baseline" : "Create your account"}</h2>
+        {mode === "sign-up" && (
+          <p className={styles.inviteNote}>
+            {invitedEmail
+              ? "You've been invited to the beta. Create your account with the address your invite went to."
+              : "Baseline+ is invite-only for now. Use the email address you were invited with."}
+          </p>
+        )}
       </div>
 
       <form method="post"

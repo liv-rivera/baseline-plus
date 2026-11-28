@@ -17,7 +17,7 @@ You'll need Node 22.12 or newer, `psql`, and a PostgreSQL database. Any provider
 1. Copy `.env.example` to `.env.local`.
 2. Set `DATABASE_URL` to your connection string. For local PostgreSQL without TLS, drop `?sslmode=require` from the end.
 3. Generate an auth secret with `openssl rand -base64 32` and put it in `BETTER_AUTH_SECRET`. Set `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` to the address the app runs at (`http://localhost:3000` locally).
-4. Set `BASELINE_OWNER_EMAIL` to the one address allowed to create an account. Leave it empty to close registration. It only affects new sign-ups, so existing accounts keep working either way.
+4. Set `BASELINE_OWNER_EMAIL` to your own address. That account can always sign up, and it's the only one that can invite other people (see [Inviting beta users](#inviting-beta-users)). Leave it empty to close registration completely, invites included. It only affects new sign-ups, so existing accounts keep working either way.
 5. Load the environment into your shell and set up the database:
 
 ```bash
@@ -32,10 +32,11 @@ npm run db:migrate:optional-readiness
 npm run db:migrate:journal
 npm run db:migrate:apple-health
 npm run db:migrate:check-in-fields
+npm run db:migrate:beta-invites
 npm run db:seed
 ```
 
-Run the migrations in that order. They map to `database/migrations/001` through `008`.
+Run the migrations in that order. They map to `database/migrations/001` through `009`.
 
 If `psql` fails with an error about `root.crt` on a managed database like Neon, add `PGSSLROOTCERT=system` to `.env.local` (or put it in front of the command). That tells `psql` to trust the system's certificates.
 
@@ -65,6 +66,12 @@ mailpit --listen 127.0.0.1:8025 --smtp 127.0.0.1:1025
 ```
 
 Set `BASELINE_MAIL_TRANSPORT=mailpit` and open `http://127.0.0.1:8025` to see the messages. Production needs `BASELINE_MAIL_TRANSPORT=resend`, a server-side `RESEND_API_KEY` and a verified `RESEND_FROM_EMAIL`. Production refuses Mailpit.
+
+### Inviting beta users
+
+Sign-up is invite-only. Signed in as the owner, open **Settings > Beta invites** and add someone's email address. That address can then create an account, and nobody else can. You can copy a sign-up link to send yourself, which opens the create-account form with their address filled in, or have the app email it to them. Removing an invite stops a sign-up that hasn't happened yet. It doesn't touch an account that already exists, so delete that separately if you need to.
+
+One catch with email: Resend's shared test sender (`onboarding@resend.dev`) only delivers to the address on your Resend account. While `RESEND_FROM_EMAIL` uses it, invited people won't get their invite or their verification email, and the Beta invites section says so and hides the email options. Mailpit locally doesn't have this limit.
 
 The sign-in page offers verification resend and password recovery. Each email endpoint allows one request per client per minute. Reset links expire after 30 minutes, and a successful reset signs out every other session. Keep auth callback URLs out of proxy and hosting logs.
 
@@ -131,7 +138,7 @@ npm run test:coverage
 npm run build
 ```
 
-Run `npm run test:integration` with `DATABASE_URL` set to a fresh, empty disposable PostgreSQL database. The suite applies migrations 001–008 and exercises per-account reads and atomic writes.
+Run `npm run test:integration` with `DATABASE_URL` set to a fresh, empty disposable PostgreSQL database. The suite applies migrations 001–009 and exercises per-account reads and atomic writes.
 
 For the browser rehearsal, use a separate freshly migrated disposable database, a local Mailpit instance, `BASELINE_MAIL_TRANSPORT=mailpit`, and a fresh `qa-<uuid>@example.test` as `BASELINE_OWNER_EMAIL`. Set both app URLs to `http://localhost:3300`. Start the app with `npm run dev -- -H 127.0.0.1 -p 3300`. Export the same fixture owner and transport in the test shell. Run `npx playwright install chromium` once, then `npm run test:e2e` (or set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to a local Chromium). It exercises verification, import, reset-link reuse, credential change and session invalidation. To run the equivalent HTTP lifecycle checks against a separate fresh fixture, set `BASELINE_API_ONLY=1` in the test shell. The database and inbox should contain synthetic records only.
 

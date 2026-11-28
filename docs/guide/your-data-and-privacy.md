@@ -6,6 +6,7 @@
 - Daily totals: steps, move, rest, breathwork, and a readiness score if your data has one.
 - Activities that came with your data, such as runs or rides.
 - Your check-ins and your check-in setup.
+- Your invite: the email address you were invited with, when it was sent, and a short private note the owner may have added (like "from run club"). Only the owner sees it. It stays on the invite list after you delete your account, until the owner removes it.
 
 When you import from Apple Health, the export file itself stays on your device. Baseline+ reads it in your browser and only sends the daily totals.
 

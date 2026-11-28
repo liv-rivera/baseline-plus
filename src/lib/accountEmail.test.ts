@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { sendAccountEmail } from "./accountEmail";
+import { canEmailOthers, sendAccountEmail } from "./accountEmail";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
@@ -23,4 +23,26 @@ it("refuses the local mail transport in production", async () => {
   vi.stubGlobal("fetch", send);
   await expect(sendAccountEmail("reset", "fixture@example.test", "fixture")).rejects.toThrow("unavailable");
   expect(send).not.toHaveBeenCalled();
+});
+
+it("sends invite emails with the sign-up link", async () => {
+  vi.stubEnv("BASELINE_MAIL_TRANSPORT", "mailpit");
+  const send = vi.fn().mockResolvedValue({ ok: true });
+  vi.stubGlobal("fetch", send);
+  await sendAccountEmail("invite", "sam@example.test", "http://localhost:3000/?join=sam%40example.test");
+  expect(JSON.parse(send.mock.calls[0][1].body)).toMatchObject({
+    Subject: "You're invited to try Baseline+",
+    Text: expect.stringContaining("http://localhost:3000/?join=sam%40example.test"),
+  });
+});
+
+it("knows Resend's shared test sender can't reach invitees", () => {
+  vi.stubEnv("BASELINE_MAIL_TRANSPORT", "resend");
+  vi.stubEnv("RESEND_API_KEY", "re_fixture");
+  vi.stubEnv("RESEND_FROM_EMAIL", "Baseline <onboarding@resend.dev>");
+  expect(canEmailOthers()).toBe(false);
+  vi.stubEnv("RESEND_FROM_EMAIL", "Baseline <hello@baseline.example.test>");
+  expect(canEmailOthers()).toBe(true);
+  vi.stubEnv("RESEND_API_KEY", "");
+  expect(canEmailOthers()).toBe(false);
 });
