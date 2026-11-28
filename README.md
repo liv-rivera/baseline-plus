@@ -112,6 +112,8 @@ Settings offers password sign-in and optional Google linking. Configure the web 
 
 The daily journal uses the selected local date. A check-in may exist without totals. Leave a total blank if it wasn't recorded; a day needs at least one. Edits require the revision that was displayed, so a stale tab cannot overwrite another save. Manual corrections keep the original source and are labeled in the journal and export. Corrected imports are compared with other corrected imports. A total with underlying activities can be removed with confirmation but cannot be edited independently of its activities. The signed-in JSON download includes all saved daily totals, activity details and check-ins, including dates outside the dashboard window. Store downloaded files privately.
 
+The check-in on each journal day uses the fields set under Settings > Daily check-in. Scores run from 1 to 5 with a short description for each number, and anything left empty is saved as not recorded rather than as a low score or a no. Hiding a field keeps its history. Deleting one removes its answers as well.
+
 ### Backup and deletion
 
 Account deletion requires the current password and explicit confirmation. The active database removes the account, sign-in methods, sessions, daily records and check-ins. An older database snapshot can still contain those records. Before enabling backups for real data, agree on an expiry period and deletion reconciliation with the owner and configure the storage provider accordingly.

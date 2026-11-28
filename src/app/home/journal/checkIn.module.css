@@ -1,0 +1,151 @@
+/* Daily check-in form. Sits inside the journal's .page, so selectors are doubled
+   (.form …) to win over the shared .page button and input rules. */
+.form.form {
+  /* Doubled to override the journal's `.page > form` two-column layout. */
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.form {
+  display: grid;
+  gap: 18px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.label {
+  padding: 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.hint {
+  min-height: 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.form .scale,
+.form .yesNo {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.form .yesNo {
+  grid-template-columns: repeat(2, minmax(0, 120px));
+}
+
+.form .scale button,
+.form .yesNo button,
+.form .tags button,
+.form .secondary {
+  justify-self: stretch;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.form .scale button:hover,
+.form .yesNo button:hover,
+.form .tags button:hover,
+.form .secondary:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.form .scale button.selected,
+.form .yesNo button.selected,
+.form .tags button.selected {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.form .tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.form .tags button {
+  min-height: 34px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.addTag {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.number {
+  max-width: 240px;
+}
+
+.numberInput {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.ok,
+.problem {
+  font-size: 14px;
+}
+
+.ok {
+  color: var(--good);
+}
+
+.problem {
+  color: var(--warn);
+}
+
+.form .clear {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--surface-muted);
+}
+
+.form .clear[open] {
+  display: grid;
+  gap: 10px;
+}
+
+.form .clear button {
+  background: var(--warn);
+}
+
+.confirm {
+  color: var(--ink);
+}

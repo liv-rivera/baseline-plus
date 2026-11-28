@@ -1,0 +1,130 @@
+.section h3 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.section fieldset {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.section legend {
+  margin-bottom: 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.time {
+  display: grid;
+  gap: 12px;
+}
+
+.section .fields {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.section .fields li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.section .rename {
+  display: grid;
+  flex: 1 1 260px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.kind {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.section .quiet {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.section .quiet:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.section .add {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  align-items: end;
+  gap: 10px;
+}
+
+.section .delete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.section .delete button {
+  background: var(--warn);
+}
+
+.ok {
+  color: var(--good);
+}
+
+.problem {
+  color: var(--warn);
+}
+
+.ok:empty,
+.problem:empty {
+  display: none;
+}
+
+.section fieldset label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.section fieldset input[type="radio"][name] {
+  flex: none;
+  width: 18px;
+  min-height: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+.section p.ok {
+  color: var(--good);
+}
+
+.section p.problem {
+  color: var(--warn);
+}
