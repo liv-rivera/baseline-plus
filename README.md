@@ -109,7 +109,11 @@ How the totals are worked out:
 - **Rest** is time asleep from `SleepAnalysis`: Core, Deep, REM, and the older plain "Asleep" value. In Bed and Awake don't count. Segments less than four hours apart are treated as one night, and the night counts toward the day you woke up. If a sleep app and the Watch both tracked the night, the Watch wins.
 - **Breathwork** is `MindfulSession` time. Sessions from different apps are added together, with any overlap counted once.
 
-Every record carries its own UTC offset, and its day is the local date in that offset. A walk at 00:30 in Tokyo belongs to that Tokyo date even though it was still the previous day in UTC. Apple Health has no readiness score, so it stays blank. Everything else in the export (heart rate, HRV, workouts and so on) is ignored for now.
+Every record carries its own UTC offset, and its day is the local date in that offset. A walk at 00:30 in Tokyo belongs to that Tokyo date even though it was still the previous day in UTC. Apple Health has no readiness score, so it stays blank.
+
+- **HRV** is the mean of the day's `HeartRateVariabilitySDNN` readings in ms, and **resting heart rate** the mean of `RestingHeartRate` in bpm, each from one device picked the same way as steps. Readings outside 1–300 ms or 20–250 bpm are dropped as glitches. They're sent to `POST /api/vitals` and stored in `daily_metric_aggregates` (`hrv_sdnn`, `resting_heart_rate`). A day can have heart readings without any totals, and importing again replaces a day's readings, so a newer export fills them in for days already saved. The check-in prompts compare them with the 28 days before.
+
+Workouts, heart rate samples and everything else in the export are ignored for now.
 
 Some days won't have all four totals, for example steps but no sleep data. Migration 007 lets a total be blank for that reason. A blank total means nothing was recorded, and 0 still means a recorded zero. Blank totals are left out of averages, trends and comparisons rather than counted as 0. CSV rows still need all four totals.
 

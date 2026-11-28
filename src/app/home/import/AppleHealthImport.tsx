@@ -2,7 +2,7 @@
 
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import Link from "next/link";
-import type { AppleHealthDay } from "@/lib/appleHealth/collector";
+import type { AppleHealthDay, AppleHealthVitals } from "@/lib/appleHealth/collector";
 import {
   AppleHealthFileError,
   exportFromDrop,
@@ -25,7 +25,7 @@ type Props = {
   onImported: () => void;
 };
 
-type Preview = { sourceName: string; newDays: AppleHealthDay[]; alreadySaved: string[] };
+type Preview = { sourceName: string; newDays: AppleHealthDay[]; alreadySaved: string[]; vitals: AppleHealthVitals[] };
 
 const show = (value: number | null) => (value === null ? "—" : value.toLocaleString("en-US"));
 const isPartial = (day: AppleHealthDay) =>
@@ -68,12 +68,15 @@ export function AppleHealthImport({ ownerId, ownerEmail, savedDates, disabled, o
       if (version !== selection.current) return;
       const newDays = summary.days.filter((day) => !savedDates.has(day.date));
       const alreadySaved = summary.days.filter((day) => savedDates.has(day.date)).map((day) => day.date);
+      // Heart readings are saved for every day, including days whose totals are already
+      // saved, so a newer export can fill them in.
+      const vitals = summary.vitals ?? [];
       setStatus("");
-      if (!newDays.length) {
+      if (!newDays.length && !vitals.length) {
         setError("Every day in this export is already saved. Nothing new to add.");
         return;
       }
-      setPreview({ sourceName, newDays, alreadySaved });
+      setPreview({ sourceName, newDays, alreadySaved, vitals });
     } catch (readError) {
       fail(version, readError);
     }
@@ -144,9 +147,21 @@ export function AppleHealthImport({ ownerId, ownerEmail, savedDates, disabled, o
         inserted += result.inserted ?? 0;
         skipped.push(...(result.skipped ?? []));
       }
+      let heartDays = 0;
+      for (let start = 0; start < preview.vitals.length; start += BATCH_SIZE) {
+        const response = await fetch("/api/vitals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Baseline-Preview-Owner": previewOwner },
+          body: JSON.stringify(preview.vitals.slice(start, start + BATCH_SIZE)),
+        });
+        const result = await response.json() as { saved?: number; error?: string };
+        if (!response.ok) throw new Error(result.error ?? "The heart readings could not be saved.");
+        heartDays += result.saved ?? 0;
+      }
       const keptCount = skipped.length + preview.alreadySaved.length;
       setSuccessMessage(
         `Added ${inserted.toLocaleString("en-US")} ${inserted === 1 ? "day" : "days"} from Apple Health.`
+        + (heartDays ? ` Saved HRV and resting heart rate for ${heartDays.toLocaleString("en-US")} ${heartDays === 1 ? "day" : "days"}.` : "")
         + (keptCount === 1 ? " 1 day was already saved and left as it was." : "")
         + (keptCount > 1 ? ` ${keptCount.toLocaleString("en-US")} days were already saved and left as they were.` : ""),
       );
@@ -177,7 +192,7 @@ export function AppleHealthImport({ ownerId, ownerEmail, savedDates, disabled, o
       </div>
 
       <p className={styles.panelIntro}>
-        Bring in your steps, move, sleep and mindful minutes straight from the export the Health app makes. It
+        Bring in your steps, move, sleep, mindful minutes, HRV and resting heart rate straight from the export the Health app makes. It
         takes a couple of minutes on your iPhone, then one drag here.
       </p>
 
@@ -229,10 +244,12 @@ export function AppleHealthImport({ ownerId, ownerEmail, savedDates, disabled, o
         <summary>What gets imported</summary>
         <p>
           Steps, active energy, sleep (Core, Deep and REM) and mindful minutes, added up by the
-          local date on each record. When your iPhone and Apple Watch both counted steps, the
+          local date on each record. HRV (SDNN) and resting heart rate are averaged for each day
+          from one device, and are used by the check-in questions. When your iPhone and Apple Watch both counted steps, the
           Watch&apos;s count is used. A night of sleep counts toward the day you woke up. If a day
           has no sleep or mindful data, that total is left blank instead of being saved as 0.
           Days you&apos;ve already saved are skipped, so you can import a newer export any time.
+          Heart readings are the exception: they&apos;re filled in for saved days too.
         </p>
       </details>
 
@@ -252,10 +269,11 @@ export function AppleHealthImport({ ownerId, ownerEmail, savedDates, disabled, o
                 {preview.newDays.length.toLocaleString("en-US")} new {preview.newDays.length === 1 ? "day" : "days"} for {ownerEmail}.
                 {partialCount > 0 && ` ${partialCount.toLocaleString("en-US")} have one or more blank totals.`}
                 {preview.alreadySaved.length > 0 && ` ${preview.alreadySaved.length.toLocaleString("en-US")} already saved and will be skipped.`}
+                {preview.vitals.length > 0 && ` HRV or resting heart rate for ${preview.vitals.length.toLocaleString("en-US")} ${preview.vitals.length === 1 ? "day" : "days"}.`}
               </p>
             </div>
             <button className={styles.importButton} type="button" onClick={handleImport} disabled={pending || ownerId !== previewOwner}>
-              {pending ? "Adding days…" : "Add days"}
+              {pending ? "Adding…" : preview.newDays.length ? "Add days" : "Add heart readings"}
             </button>
           </div>
           <div className={styles.tableWrap}>

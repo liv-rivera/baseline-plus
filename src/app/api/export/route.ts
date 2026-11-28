@@ -20,7 +20,9 @@ export async function GET(request: Request) {
       FROM daily_check_ins ci WHERE user_id=$1) c),'[]') AS check_ins,
     COALESCE((SELECT jsonb_agg(to_jsonb(f) ORDER BY f.position,f.label) FROM (
       SELECT id,label,kind,score_labels,unit,position,preset,prompt_metrics,retired_at IS NOT NULL AS hidden,created_at
-      FROM check_in_fields WHERE user_id=$1) f),'[]') AS check_in_fields`,
+      FROM check_in_fields WHERE user_id=$1) f),'[]') AS check_in_fields,
+    COALESCE((SELECT jsonb_agg(jsonb_build_object('date',local_date::text,'metric',metric_key,'value',value,'unit',unit,'computed_at',computed_at)
+      ORDER BY local_date,metric_key) FROM daily_metric_aggregates WHERE user_id=$1),'[]') AS daily_readings`,
       [session.user.id],
     );
     return Response.json(
@@ -35,6 +37,7 @@ export async function GET(request: Request) {
           energy: "rating 1–5",
           soreness: "rating 1–5",
           check_in_answers: "score 1–5 described by the field's score_labels; number in the field's unit",
+          daily_readings: "hrv_sdnn in ms, resting_heart_rate in bpm (daily mean from Apple Health)",
         },
         date_convention: "Source local calendar date (YYYY-MM-DD)",
         ...rows[0],
