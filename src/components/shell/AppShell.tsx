@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { BookOpen, LayoutDashboard, Settings, Upload } from "lucide-react";
 import { UserDetailsPopup } from "@/components/UserDetailsPopup";
+import { SignOutButton } from "./SignOutButton";
 import styles from "./AppShell.module.css";
 
 const navItems = [
@@ -65,7 +66,10 @@ export function AppShell({ children, demo = false }: { children: ReactNode; demo
               <Link className={styles.demoCta} href="/">Sign in</Link>
             </>
           ) : (
-            <UserDetailsPopup />
+            <>
+              <SignOutButton />
+              <UserDetailsPopup />
+            </>
           )}
         </div>
       </aside>
