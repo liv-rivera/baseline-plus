@@ -1,6 +1,6 @@
 # Ready task decisions
 
-This record covers the nine tasks selected from the dashboard on 26 November 2026. Code and fixture evidence live on the ongoing private-build acceptance branch.
+This record covers the nine tasks selected from the dashboard on 26 November 2026. That work merged in PR 7. Some decisions were later superseded, and each one that changed has a short "Since then" note. The rest of the text is kept as it was decided.
 
 ## T050 Mobile daily entry and corrections
 
@@ -14,11 +14,15 @@ The journal opens a chosen local calendar date. The date picker initially uses t
 | Rest | Required daily total | Whole minutes from 0 to 1440 |
 | Breathwork | Required daily total | Whole minutes from 0 to 1440 |
 
+Since then: migration 007 (PR 10) lets a journal day leave a total blank when it wasn't recorded, as long as at least one total is filled in. Blank still never becomes zero.
+
 A blank amount is unknown and cannot be saved as zero. Manual entry creates a source-labeled total with no readiness score. Correcting an imported summary preserves its original source and supplied score and adds a correction flag. Detailed days display their stored totals. Editing a summary with underlying activities is blocked. Removing that day requires the dated confirmation checkbox and cascades to its real contributions.
 
 Save disables its button during the request and reports success or a recoverable error beside the form. A revision mismatch requires a reload. It cannot overwrite another tab’s save. Totals and context use separate forms and separate removal confirmations. Controls fit a phone viewport, use explicit labels and retain visible keyboard focus.
 
 ## T054 Quick daily check-in
+
+Since then: the check-in became configurable in PRs 14 and 15 (T256 to T258). Energy and Soreness keep the 1 to 5 scale, now with a description for each number, Notes gained tags, and people can add their own score, yes/no and number fields under Settings > Daily check-in. The note limit is still 240 characters.
 
 Energy and soreness are independent optional ratings from 1 to 5, with 1 low and 5 high. A private note of up to 240 characters is optional. This release uses the short note for free-form context. Tags can wait until a concrete use emerges.
 
@@ -36,6 +40,8 @@ Show the selected date, metric units, comparison range, eligible count, gaps and
 
 ## T171 Available intake assessment and T060 template verification
 
+Since then: Apple Health import shipped in PR 10, tested against a real export. CSV stays as the fallback described below.
+
 The project contains the supported CSV template, the synthetic daily-totals example and legacy browser totals. No owner device export was supplied for this review. The selected intake is the existing CSV/manual fallback. It costs no additional subscription, needs no provider API scopes or approval, and creates no device connection.
 
 The file maps date to the supplied local date, steps to counts, moveCalories to active kcal, and restMinutes and breatheMinutes to minutes. The optional readinessScore is an externally supplied 0–100 score. Empty readiness stays null. Imports create summaries and preserve genuine activity details already stored elsewhere. The sample is fictional and carries no personal measurements.
@@ -45,6 +51,8 @@ Before saving, the preview names its destination account. A changed account inva
 The browser rehearsal times the supported synthetic intake from opening Import data to reading the saved dashboard. It runs with a Honolulu browser timezone against a UTC CI host, confirms the original calendar date, rejects a repeated file and a malformed header, and verifies the saved record count stays unchanged. The time printed by CI measures the automated fixture workflow. It does not measure a person’s familiarity with the app.
 
 ## T078 Data retention and deletion rules
+
+Since then: Settings > Delete all data (PR 13) removes every saved day, activity, import and check-in in one step while keeping the account, sign-in methods, provider connections and check-in field setup. Deleting a custom check-in field removes its answers too. Hiding one keeps them.
 
 | Data | Retention rule | Removal and restore behavior |
 | --- | --- | --- |
@@ -63,7 +71,7 @@ Private-build automation creates zero backups of real account data. Enabling rea
 
 The PostgreSQL integration suite uses two synthetic accounts with overlapping dates. It checks signed-out reads, account-specific reads, mismatched preview owners, actual session expiration, sign-out and closed registration. The browser rehearsal checks the protected dashboard redirects after access is revoked.
 
-Run npm run test:local-release to build and run the production-mode app on 127.0.0.1:3317 with a disposable in-memory PGlite database on 127.0.0.1:35471. The runner loads all six migrations, generates fixture credentials and a fresh auth secret, closes registration and external email sending, and checks two-account isolation and dashboard/API access before and after expiry and sign-out. It respects production authentication throttles. Credentials and database contents are discarded after the run. It uses an isolated process environment and changes no local account configuration.
+Run npm run test:local-release to build and run the production-mode app on 127.0.0.1:3317 with a disposable in-memory PGlite database on 127.0.0.1:35471. The runner loads every migration in database/migrations, generates fixture credentials and a fresh auth secret, closes registration and external email sending, and checks two-account isolation and dashboard/API access before and after expiry and sign-out. It respects production authentication throttles. Credentials and database contents are discarded after the run. It uses an isolated process environment and changes no local account configuration.
 
 The Mac execution sandbox rejects native PostgreSQL shared-memory creation. PGlite provides a PostgreSQL WASM development backend for this local check. It is a single-connection fixture environment with DATABASE_POOL_MAX=1 and is a development dependency. The standard private account rehearsal continues to use PostgreSQL 16 in CI for migrations, concurrent writes, browser intake, backups, deletion reconciliation and rollback. This records the local release check’s limits and keeps the existing database integration coverage.
 
