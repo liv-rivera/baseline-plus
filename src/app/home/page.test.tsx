@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Averages, DailyMetrics } from "@/types/metrics";
 
@@ -53,11 +53,12 @@ describe("Home dashboard page", () => {
     if (score === null) {
       expect(screen.queryByRole("img", { name: /readiness score/i })).toBeNull();
       expect(screen.getByText("No score recorded for this date.")).toBeVisible();
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("No readiness score today");
     } else {
       expect(screen.getByText("Score supplied in your import")).toBeVisible();
       expect(screen.getByRole("img", { name: "Readiness score: 0 out of 100" })).toBeVisible();
     }
-    expect(screen.getByText("LATEST VS. FULL-HISTORY AVERAGE")).toBeVisible();
+    expect(screen.getByRole("columnheader", { name: "Vs average" })).toBeVisible();
   });
 
   it("renders trend and change values relative to the average and previous record", () => {
@@ -70,11 +71,16 @@ describe("Home dashboard page", () => {
 
     render(<Home />);
 
+    // Readiness leads the page as its main heading
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Ready to train");
+    const steps = within(screen.getByRole("row", { name: /^Steps/ }));
     // Latest record values
-    expect(screen.getByText("1,200")).toBeInTheDocument();
+    expect(steps.getByText("1,200")).toBeInTheDocument();
     // Trend: latest (1200) - previous (1000) = +200
-    expect(screen.getByText("+200")).toBeInTheDocument();
+    expect(steps.getByText("+200")).toBeInTheDocument();
     // Change: latest (1200) - average (1100) = +100
-    expect(screen.getByText("+100")).toBeInTheDocument();
+    expect(steps.getByText("+100")).toBeInTheDocument();
+    // Metric cards link to their detail pages
+    expect(screen.getByRole("link", { name: "Steps: 1,200. View details" })).toHaveAttribute("href", "/home/steps");
   });
 });

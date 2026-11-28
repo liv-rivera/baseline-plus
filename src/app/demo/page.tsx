@@ -1,32 +1,16 @@
-import Link from "next/link";
-import { PersonalRecap } from "@/components/PersonalRecap";
-import type { DailyMetrics } from "@/types/metrics";
-import styles from "../home/journal/journal.module.css";
+import { Dashboard } from "@/components/dashboard/Dashboard";
+import { AppShell } from "@/components/shell/AppShell";
+import { averageMetrics, generateSampleMetrics } from "@/lib/sampleData";
 
-const example: DailyMetrics[] = Array.from({ length: 28 }, (_, i) => ({
-  date: `2026-02-${String(i + 1).padStart(2, "0")}`,
-  source: "demo",
-  steps: 3200 + ((i * 1600) % 5100),
-  moveCalories: 150 + ((i * 55) % 290),
-  restMinutes: 400 + ((i * 27) % 105),
-  breatheMinutes: (i % 4) * 5,
-  readinessScore: null,
-  ...(i % 3 === 0 && { checkIn: { energy: 3, soreness: null } }),
-  activities: [],
-  stepActivities: [],
-  restPeriods: [],
-  breathworkSessions: [],
-}));
+// Re-render daily so the six sample weeks always end today.
+export const revalidate = 3600;
 
 export default function Demo() {
+  const today = new Date().toISOString().slice(0, 10);
+  const metrics = generateSampleMetrics(today);
   return (
-    <main className={styles.page}>
-      <Link href="/">Back to sign in</Link>
-      <h1>Sample dashboard</h1>
-      <p>
-        Explore four weeks of fictional daily totals. This sample is read-only.
-      </p>
-      <PersonalRecap rows={example} latest={example[example.length - 1]} demo />
-    </main>
+    <AppShell demo>
+      <Dashboard metrics={metrics} averages={averageMetrics(metrics)} demo />
+    </AppShell>
   );
 }

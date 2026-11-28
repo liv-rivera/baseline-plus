@@ -18,11 +18,13 @@ export function personalRecap(
     );
     const observations = days.flatMap((date) => {
       const row = byDate.get(date);
+      const value = row?.[metric];
       return row &&
+        value !== null && value !== undefined &&
         row.source === anchor.source &&
         (anchor.source === "manual" ||
           Boolean(row.manuallyCorrected) === Boolean(anchor.manuallyCorrected))
-        ? [{ date, value: row[metric], checkedIn: Boolean(row.checkIn) }]
+        ? [{ date, value, checkedIn: Boolean(row.checkIn) }]
         : [];
     });
     const values = observations.map((o) => o.value).sort((a, b) => a - b);

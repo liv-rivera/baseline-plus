@@ -1,7 +1,7 @@
 import { DeleteAccount } from "./DeleteAccount";
+import { DeleteAllData } from "./DeleteAllData";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { SignInMethods } from "./SignInMethods";
 import styles from "../journal/journal.module.css";
@@ -16,8 +16,7 @@ export default async function Settings({
     headers: await headers(),
   });
   return (
-    <main className={styles.page}>
-      <Link href="/home">Back to dashboard</Link>
+    <div className={styles.page}>
       <h1>Account settings</h1>
       {(await searchParams).error && (
         <p role="alert">
@@ -31,10 +30,17 @@ export default async function Settings({
           process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
         )}
       />
-      <a href="/api/export" download>
-        Download my records
-      </a>
-      <DeleteAccount owner={session.user.id} />
-    </main>
+      <section>
+        <h2>Your data</h2>
+        <p>Download everything Baseline+ stores for you as a JSON file.</p>
+        <a className="button-secondary" style={{ justifySelf: "start" }} href="/api/export" download>
+          Download my records
+        </a>
+      </section>
+      <DeleteAllData owner={session.user.id} />
+      <div className={styles.danger}>
+        <DeleteAccount owner={session.user.id} />
+      </div>
+    </div>
   );
 }

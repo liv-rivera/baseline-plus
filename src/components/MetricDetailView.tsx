@@ -20,7 +20,8 @@ const formatDate = (date: string) =>
     year: "numeric",
   });
 
-const formatValue = (value: number, unit: string) => {
+const formatValue = (value: number | null, unit: string) => {
+  if (value === null) return "Not recorded";
   const formatted = value.toLocaleString("en-US");
   return unit === "steps" ? formatted : `${formatted} ${unit}`;
 };
@@ -30,17 +31,19 @@ export const MetricDetailView = ({
   description,
   unit,
   entryHeading,
-  records,
+  records: allRecords,
   loading,
   error,
 }: MetricDetailViewProps) => {
+  // Days where this metric wasn't recorded (for example, no sleep data) are left out.
+  const records = allRecords.filter((record) => record.total !== null);
   const newestFirst = [...records].reverse();
   const entryCount = records.reduce((count, record) => count + record.entries.length, 0);
   const firstDate = records[0]?.date;
   const latestDate = records[records.length - 1]?.date;
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <div className={styles.content}>
         <Link className={styles.backLink} href="/home">Back to dashboard</Link>
 
@@ -108,6 +111,6 @@ export const MetricDetailView = ({
           </div>
         </section>
       </div>
-    </main>
+    </div>
   );
 };
