@@ -1,4 +1,5 @@
 import { DeleteAccount } from "./DeleteAccount";
+import { DeleteAllData } from "./DeleteAllData";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
@@ -36,6 +37,7 @@ export default async function Settings({
           Download my records
         </a>
       </section>
+      <DeleteAllData owner={session.user.id} />
       <div className={styles.danger}>
         <DeleteAccount owner={session.user.id} />
       </div>
