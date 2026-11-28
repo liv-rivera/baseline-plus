@@ -13,8 +13,18 @@ export type AppleHealthDay = {
   sources: Partial<Record<MetricKey, string>>;
 };
 
+/** One day's heart readings, kept apart from the totals because a day can have only these. */
+export type AppleHealthVitals = {
+  date: string;
+  /** Mean HRV (SDNN) in ms from the preferred device, or null. */
+  hrv: number | null;
+  /** Resting heart rate in bpm from the preferred device, or null. */
+  restingHeartRate: number | null;
+};
+
 export type AppleHealthSummary = {
   days: AppleHealthDay[];
+  vitals: AppleHealthVitals[];
   recordsUsed: number;
 };
 
@@ -22,7 +32,12 @@ const STEPS = "HKQuantityTypeIdentifierStepCount";
 const ACTIVE_ENERGY = "HKQuantityTypeIdentifierActiveEnergyBurned";
 const SLEEP = "HKCategoryTypeIdentifierSleepAnalysis";
 const MINDFUL = "HKCategoryTypeIdentifierMindfulSession";
-const wantedTypes = new Set([STEPS, ACTIVE_ENERGY, SLEEP, MINDFUL]);
+const HRV = "HKQuantityTypeIdentifierHeartRateVariabilitySDNN";
+const RESTING_HR = "HKQuantityTypeIdentifierRestingHeartRate";
+const wantedTypes = new Set([STEPS, ACTIVE_ENERGY, SLEEP, MINDFUL, HRV, RESTING_HR]);
+// Readings outside these are sensor glitches, not physiology.
+const HRV_RANGE = [1, 300] as const;
+const RESTING_HR_RANGE = [20, 250] as const;
 
 // Core, Deep and REM, plus the older "Asleep" values from before watchOS 9
 // and third-party apps that don't record stages. In Bed and Awake are left out.
@@ -159,6 +174,16 @@ export class AppleHealthCollector {
   private sleep = new Map<string, Interval[]>();
   private mindful = new Map<string, Interval[]>();
   private mindfulSources = new Map<string, Set<string>>();
+  // date -> device -> [sum, count]
+  private hrv = new Map<string, Map<string, [number, number]>>();
+  private restingHr = new Map<string, Map<string, [number, number]>>();
+
+  private addReading(map: Map<string, Map<string, [number, number]>>, date: string, label: string, value: number) {
+    let byDevice = map.get(date);
+    if (!byDevice) map.set(date, (byDevice = new Map()));
+    const [sum, count] = byDevice.get(label) ?? [0, 0];
+    byDevice.set(label, [sum + value, count + 1]);
+  }
 
   push(text: string) {
     const buffer = this.buffer + text;
@@ -212,6 +237,12 @@ export class AppleHealthCollector {
         if (kcal === null) return;
         addTo(this.energy, start.date, label, kcal);
       }
+    } else if (type === HRV || type === RESTING_HR) {
+      const value = Number(attributes.value);
+      const [min, max] = type === HRV ? HRV_RANGE : RESTING_HR_RANGE;
+      const unitOk = type === HRV ? attributes.unit === "ms" : attributes.unit === "count/min";
+      if (!unitOk || !Number.isFinite(value) || value < min || value > max) return;
+      this.addReading(type === HRV ? this.hrv : this.restingHr, start.date, label, value);
     } else if (type === SLEEP) {
       if (!asleepValues.has(attributes.value)) return;
       pushTo(this.sleep, label, { start: start.ms, end: end.ms, endDate: end.date });
@@ -311,8 +342,28 @@ export class AppleHealthCollector {
       entry.sources.breatheMinutes = [...(this.mindfulSources.get(date) ?? [])].sort().join(", ");
     }
 
+    // Heart readings: the mean of the day's readings from the preferred device.
+    const vitals = new Map<string, AppleHealthVitals>();
+    const mean = (byDevice: Map<string, [number, number]>) => {
+      const counts = new Map([...byDevice].map(([label, [, count]]) => [label, count]));
+      const picked = pickPreferred(counts);
+      if (!picked) return null;
+      const [sum, count] = byDevice.get(picked[0])!;
+      return Math.round((sum / count) * 10) / 10;
+    };
+    for (const [key, map] of [["hrv", this.hrv], ["restingHeartRate", this.restingHr]] as const) {
+      for (const [date, byDevice] of map) {
+        const value = mean(byDevice);
+        if (value === null) continue;
+        let entry = vitals.get(date);
+        if (!entry) vitals.set(date, (entry = { date, hrv: null, restingHeartRate: null }));
+        entry[key] = value;
+      }
+    }
+
     return {
       days: [...days.values()].sort((a, b) => a.date.localeCompare(b.date)),
+      vitals: [...vitals.values()].sort((a, b) => a.date.localeCompare(b.date)),
       recordsUsed: this.recordsUsed,
     };
   }

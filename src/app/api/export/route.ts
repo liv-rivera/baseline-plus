@@ -12,7 +12,9 @@ export async function GET(request: Request) {
        FROM metric_contributions WHERE daily_metric_id=m.id),'[]') AS contributions
       FROM daily_metrics m WHERE user_id=$1) d),'[]') AS metrics,
     COALESCE((SELECT jsonb_agg(to_jsonb(c) ORDER BY c.date) FROM (
-      SELECT local_date::text AS date,energy,soreness,note,updated_at FROM daily_check_ins WHERE user_id=$1) c),'[]') AS check_ins`,
+      SELECT local_date::text AS date,energy,soreness,note,updated_at FROM daily_check_ins WHERE user_id=$1) c),'[]') AS check_ins,
+    COALESCE((SELECT jsonb_agg(jsonb_build_object('date',local_date::text,'metric',metric_key,'value',value,'unit',unit,'computed_at',computed_at)
+      ORDER BY local_date,metric_key) FROM daily_metric_aggregates WHERE user_id=$1),'[]') AS daily_readings`,
       [session.user.id],
     );
     return Response.json(
@@ -26,6 +28,7 @@ export async function GET(request: Request) {
           readiness_score: "source score 0–100",
           energy: "rating 1–5",
           soreness: "rating 1–5",
+          daily_readings: "hrv_sdnn in ms, resting_heart_rate in bpm (daily mean from Apple Health)",
         },
         date_convention: "Source local calendar date (YYYY-MM-DD)",
         ...rows[0],
